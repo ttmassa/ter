@@ -1,0 +1,6 @@
+arg(a).
+arg(b).
+att(a, b).
+vot(A, a, 1).
+vot(A, b, -1).
+vot(B, b, -1).
