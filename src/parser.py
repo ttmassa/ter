@@ -44,6 +44,23 @@ def write_apx(file_path: str, args: list[str], atts: list[list[str]], votes: dic
         for (agent, argument), vote in votes.items():
             f.write(f"vot({agent}, {argument}, {vote}).\n")
 
+def display_parsed_content(args: list[str], atts: list[list[str]], votes: dict[tuple[str, str], int]) -> None:
+    """
+        Display the parsed arguments, attacks, and votes in a readable format.
+    """
+    formatted_args = "[" + ", ".join(f'\"{arg}\"' for arg in args) + "]"
+    formatted_atts = "[" + ", ".join(
+        f'[\"{attacker}\", \"{target}\"]' for attacker, target in atts
+    ) + "]"
+    items = sorted(votes.items(), key=lambda item: (item[0][0], item[0][1]))
+    formatted_votes = "{" + ", ".join(
+        f"({agent}, {argument}): {vote}" for (agent, argument), vote in items
+    ) + "}"
+
+    print(f"Arguments: {formatted_args}")
+    print(f"Attacks: {formatted_atts}")
+    print(f"Votes: {formatted_votes}")
+
 def _parse_arg(line: str, file_path: str, line_number: int) -> str:
     """
         Parse the argument from the given line and return it as a string.
