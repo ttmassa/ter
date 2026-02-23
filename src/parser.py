@@ -1,4 +1,4 @@
-def apx_parser(file_path: str):
+def read_apx(file_path: str):
     """
         Parse the arguments, attacks, and votes from the given file.
     """
@@ -22,11 +22,27 @@ def apx_parser(file_path: str):
                 attacks.append(att)
             elif line.startswith('vot'):
                 vote = _parse_vote(line, file_path, line_counter)
+                # Make sure to check for votes on non-existent arguments
+                for (_, argument), _ in vote.items():
+                    if argument not in arguments:
+                        raise ValueError(f"Vote for non-existent argument: {argument}, line {line_counter}, in {file_path}.")
                 # Use the update method to only add the last vote in case of multiple votes for the same (agent, argument) pair
                 votes.update(vote)
             else:
                 raise ValueError(f"Invalid line format: {line}. Expected lines to start with 'arg', 'att', or 'vot', line {line_counter}, in {file_path}.")
     return arguments, attacks, votes
+
+def write_apx(file_path: str, args: list[str], atts: list[list[str]], votes: dict[tuple[str, str], int]) -> None:
+    """
+        Write the arguments, attacks, and votes to the given file in the APX format.
+    """
+    with open(file_path, 'w') as f:
+        for arg in args:
+            f.write(f"arg({arg}).\n")
+        for att in atts:
+            f.write(f"att({att[0]}, {att[1]}).\n")
+        for (agent, argument), vote in votes.items():
+            f.write(f"vot({agent}, {argument}, {vote}).\n")
 
 def _parse_arg(line: str, file_path: str, line_number: int) -> str:
     """
