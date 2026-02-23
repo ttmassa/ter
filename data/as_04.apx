@@ -10,3 +10,31 @@ att(s, t).
 att(t, p).
 att(p, r).
 att(t, q).
+vot(A, p, 1).
+vot(A, q, -1).
+vot(B, r, 1).
+vot(B, s, 0).
+vot(C, t, -1).
+vot(C, p, 0).
+vot(D, q, 1).
+vot(D, r, -1).
+vot(E, s, 1).
+vot(E, t, 0).
+vot(F, p, -1).
+vot(F, q, 0).
+vot(G, r, 1).
+vot(G, s, -1).
+vot(H, t, 1).
+vot(H, p, 0).
+vot(I, q, -1).
+vot(I, r, 0).
+vot(J, s, 1).
+vot(J, t, -1).
+vot(K, p, 1).
+vot(K, r, 0).
+vot(L, q, 1).
+vot(L, s, -1).
+vot(M, t, 0).
+vot(M, p, -1).
+vot(N, r, 1).
+vot(N, q, 0).

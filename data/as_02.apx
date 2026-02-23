@@ -4,3 +4,24 @@ arg(c).
 att(a, b).
 att(b, c).
 att(c, a).
+vot(A, a, 1).
+vot(A, b, -1).
+vot(B, b, 1).
+vot(B, c, 0).
+vot(C, a, 0).
+vot(C, c, 1).
+vot(D, a, -1).
+vot(D, b, 0).
+vot(E, b, 1).
+vot(E, c, -1).
+vot(F, a, 1).
+vot(F, c, 0).
+vot(G, a, 0).
+vot(G, b, -1).
+vot(H, b, 0).
+vot(H, c, 1).
+vot(I, a, -1).
+vot(I, c, 1).
+vot(J, a, 1).
+vot(J, b, 0).
+

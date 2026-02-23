@@ -6,3 +6,31 @@ att(a, c).
 att(b, c).
 att(c, d).
 att(d, b).
+vot(A, b, 1).
+vot(B, a, 1).
+vot(B, c, -1).
+vot(C, a, 0).
+vot(C, d, 1).
+vot(D, b, -1).
+vot(D, c, 0).
+vot(E, a, 1).
+vot(E, d, -1).
+vot(F, b, 0).
+vot(F, c, 1).
+vot(G, a, -1).
+vot(G, d, 0).
+vot(H, b, 1).
+vot(H, c, -1).
+vot(I, a, 0).
+vot(I, d, 1).
+vot(J, b, -1).
+vot(J, c, 0).
+vot(K, a, 1).
+vot(K, d, -1).
+vot(L, b, 0).
+vot(L, c, 1).
+vot(M, a, -1).
+vot(M, d, 0).
+vot(N, b, 1).
+vot(N, c, -1).
+
