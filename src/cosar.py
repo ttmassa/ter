@@ -1,3 +1,5 @@
+from pygarg.dung import solver
+
 def aggregate_votes(args: list[str], votes: dict[tuple[str, str], int]) -> dict[str, list[int]]:
     """
         Compute the score of each argument based on the votes and return it in this format:
@@ -43,12 +45,16 @@ def prune_attacks(atts: list[list[str]], scores: dict[str, float]) -> list[list[
     return pruned_atts
 
         
-def run(args, atts, votes):
+def run(args, atts, votes, semantics):
     """
         Run the COSAR algorithm on the given argumentation system.
     """
     aggregate = aggregate_votes(args, votes)
     scores = compute_scores(aggregate)
     pruned_atts = prune_attacks(atts, scores)
-    return pruned_atts
+
+    # Compute extensions using pygarg solver
+    extensions = solver.compute_some_extension(args, pruned_atts, semantics)
+
+    return pruned_atts, extensions
     
