@@ -7,7 +7,7 @@ from parser import display_parsed_content, read_apx, write_apx
 from pathlib import Path
 from pygarg.dung import solver
 
-def main() -> None:
+def main():
     parser = _build_parser()
     cli_args = parser.parse_args()
 
@@ -85,7 +85,10 @@ def _load_input(
     data_dir: Path,
     files: list[Path],
     use_custom_input: bool,
-) -> tuple[str, list[str], list[list[str]], dict[tuple[str, str], int]]:
+) -> tuple[str, list[str], list[list[str]], dict[str, dict[str, int]]]:
+    """
+        Load input either from custom arguments, by selecting a file interactively or via --file.
+    """
     if use_custom_input:
         return (
             "custom_input",
@@ -113,6 +116,9 @@ def _resolve_input_file(
     data_dir: Path,
     parser: argparse.ArgumentParser,
 ) -> Path:
+    """
+        Resolve the input file path, checking both absolute and data/ directory, and validate existence.
+    """
     candidate = Path(file_arg)
     if not candidate.is_absolute():
         candidate_in_data = data_dir / file_arg
@@ -124,7 +130,7 @@ def _resolve_input_file(
     return selected_file
 
 
-def _print_welcome() -> None:
+def _print_welcome():
     print("Welcome to COSAR/CSS CLI")
     print("Start by choosing an algorithm.")
 
@@ -252,7 +258,8 @@ def _select_css_parameters_interactively(cli_args: argparse.Namespace) -> None:
         if measure in {"S", "D", "U"}:
             cli_args.measure = measure
             break
-        print("  Invalid measure. Choose S, D, or U.")
+        else:
+            print("  Invalid measure. Choose S, D, or U.")
 
     while True:
         agg = input(f"  Aggregation sum/min/leximax/leximin [{cli_args.agg}]: ").strip().lower()
@@ -287,21 +294,25 @@ def _parse_custom_atts(raw_atts: str) -> list[list[str]]:
     return normalized
 
 
-def _parse_custom_votes(raw_votes: str) -> dict[tuple[str, str], int]:
+def _parse_custom_votes(raw_votes: str) -> dict[str, dict[str, int]]:
     parsed = ast.literal_eval(raw_votes)
     if not isinstance(parsed, dict):
-        raise ValueError("--votes must be a Python dict, e.g. {(\"A\", \"a\"): 1}.")
+        raise ValueError("--votes must be a Python dict, e.g. {'A': {'a': 1, 'b': -1}}.")
 
-    normalized: dict[tuple[str, str], int] = {}
-    for key, value in parsed.items():
-        if not isinstance(key, tuple) or len(key) != 2:
-            raise ValueError("Vote keys must be tuples of (agent, argument).")
-        agent, argument = key
-        if not isinstance(agent, str) or not isinstance(argument, str):
-            raise ValueError("Vote key values must be strings.")
-        if value not in (-1, 0, 1):
-            raise ValueError("Vote values must be -1, 0, or 1.")
-        normalized[(agent, argument)] = int(value)
+    normalized: dict[str, dict[str, int]] = {}
+    for agent, argument_votes in parsed.items():
+        if not isinstance(agent, str):
+            raise ValueError("Agent names must be strings.")
+        if not isinstance(argument_votes, dict):
+            raise ValueError("Each agent value must be a dict of {argument: vote}.")
+
+        normalized[agent] = {}
+        for argument, value in argument_votes.items():
+            if not isinstance(argument, str):
+                raise ValueError("Argument names must be strings.")
+            if value not in (-1, 0, 1):
+                raise ValueError("Vote values must be -1, 0, or 1.")
+            normalized[agent][argument] = int(value)
     return normalized
 
 
@@ -334,7 +345,7 @@ def _build_parser() -> argparse.ArgumentParser:
         "--votes",
         dest="custom_votes",
         type=str,
-        help="Custom votes as Python literal dict, e.g. '{(\"A\", \"a\"): 1, (\"B\", \"b\"): -1}'.",
+        help="Custom votes as Python literal nested dict, e.g. '{\"A\": {\"a\": 1, \"b\": -1}, \"B\": {\"c\": 0}}'.",
     )
     parser.add_argument(
         "--no-write",

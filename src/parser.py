@@ -23,16 +23,24 @@ def read_apx(file_path: str):
             elif line.startswith('vot'):
                 vote = _parse_vote(line, file_path, line_counter)
                 # Make sure to check for votes on non-existent arguments
-                for (_, argument), _ in vote.items():
-                    if argument not in arguments:
-                        raise ValueError(f"Vote for non-existent argument: {argument}, line {line_counter}, in {file_path}.")
-                # Use the update method to only add the last vote in case of multiple votes for the same (agent, argument) pair
-                votes.update(vote)
+                for arguments_dict in vote.values():
+                    for argument in arguments_dict:
+                        if argument not in arguments:
+                            raise ValueError(f"Vote for non-existent argument: {argument}, line {line_counter}, in {file_path}.")
+                # Merge vote into votes dict, updating nested dict for agent
+                for agent, arguments_dict in vote.items():
+                    if agent not in votes:
+                        votes[agent] = {}
+                    # Check for duplicate votes (same agent voting on the same argument twice)
+                    for argument, vote_value in arguments_dict.items():
+                        if argument in votes[agent]:
+                            raise ValueError(f"Duplicate vote from agent '{agent}' for argument '{argument}', line {line_counter}, in {file_path}.")
+                        votes[agent][argument] = vote_value
             else:
                 raise ValueError(f"Invalid line format: {line}. Expected lines to start with 'arg', 'att', or 'vot', line {line_counter}, in {file_path}.")
     return arguments, attacks, votes
 
-def write_apx(file_path: str, args: list[str], atts: list[list[str]], votes: dict[tuple[str, str], int]) -> None:
+def write_apx(file_path: str, args: list[str], atts: list[list[str]], votes: dict[str, dict[str, int]]) -> None:
     """
         Write the arguments, attacks, and votes to the given file in the APX format.
     """
@@ -41,21 +49,26 @@ def write_apx(file_path: str, args: list[str], atts: list[list[str]], votes: dic
             f.write(f"arg({arg}).\n")
         for att in atts:
             f.write(f"att({att[0]}, {att[1]}).\n")
-        for (agent, argument), vote in votes.items():
-            f.write(f"vot({agent}, {argument}, {vote}).\n")
+        for agent, arguments_dict in votes.items():
+            for argument, vote in arguments_dict.items():
+                f.write(f"vot({agent}, {argument}, {vote}).\n")
 
-def display_parsed_content(args: list[str], atts: list[list[str]], votes: dict[tuple[str, str], int]) -> None:
+def display_parsed_content(args: list[str], atts: list[list[str]], votes: dict[str, dict[str, int]]) -> None:
     """
         Display the parsed arguments, attacks, and votes in a readable format.
     """
-    formatted_args = "[" + ", ".join(f'\"{arg}\"' for arg in args) + "]"
+    formatted_args = "[" + ", ".join(f'\'{arg}\'' for arg in args) + "]"
     formatted_atts = "[" + ", ".join(
-        f'[\"{attacker}\", \"{target}\"]' for attacker, target in atts
+        f'[\'{attacker}\', \'{target}\']' for attacker, target in atts
     ) + "]"
-    items = sorted(votes.items(), key=lambda item: (item[0][0], item[0][1]))
-    formatted_votes = "{" + ", ".join(
-        f"({agent}, {argument}): {vote}" for (agent, argument), vote in items
-    ) + "}"
+    # Format votes in nested structure: {agent: {argument: vote, ...}, ...}
+    agent_votes_list = []
+    for agent in sorted(votes.keys()):
+        arg_votes = ", ".join(
+            f"{arg}: {votes[agent][arg]}" for arg in sorted(votes[agent].keys())
+        )
+        agent_votes_list.append(f"{agent}: {{{arg_votes}}}")
+    formatted_votes = "{" + ", ".join(agent_votes_list) + "}"
 
     print(f"Arguments: {formatted_args}")
     print(f"Attacks: {formatted_atts}")
@@ -83,11 +96,13 @@ def _parse_att(line: str, file_path: str, line_number: int) -> list[str]:
         raise ValueError(f"Invalid line format: {line}. Expected format: 'att(attacker, target)', line {line_number}, in {file_path}.")
     return parts
 
-def _parse_vote(line: str, file_path: str, line_number: int) -> dict[tuple[str, str], int]:
+def _parse_vote(line: str, file_path: str, line_number: int) -> dict[str, dict[str, int]]:
     """
-        Parse the votes from the given file and return a dict of this form:
+        Parse the vote from the given line and return a dict of this form:
         {
-            (agent, argument): vote
+            agent: {
+                argument: vote
+            }
         }
     """
     # Extract the content inside the parentheses
@@ -101,4 +116,4 @@ def _parse_vote(line: str, file_path: str, line_number: int) -> dict[tuple[str, 
     if vote_str not in ['-1', '0', '1']:
         raise ValueError(f"Invalid vote value: {vote_str}. Expected '-1', '0', or '1', line {line_number}, in {file_path}.")
 
-    return {(agent, argument): int(vote_str)}
+    return {agent: {argument: int(vote_str)}}

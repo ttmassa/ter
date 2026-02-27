@@ -1,19 +1,14 @@
-def run(extensions, arguments, votes_dict, measure='U', agg='sum'):
+def run(extensions, arguments: list[str], votes_dict: dict[str, dict[str, int]], measure: str = 'U', agg: str = 'sum'):
     if not extensions: 
         return []
-    
-    # Group votes by agent
-    agents = {}
-    for (ag, arg), val in votes_dict.items():
-        agents.setdefault(ag, {})[arg] = val
-        
+            
     res = []
     for ext in extensions:
         # Map extension: +1 if accepted, -1 if rejected
         vec = {a: 1 if a in ext else -1 for a in arguments}
         sc = []
         
-        for v in agents.values():
+        for v in votes_dict.values():
             # Calculate agreement (S) and disagreement (D)
             s = sum(1 for a, val in v.items() if a in vec and val == vec[a])
             d = -sum(1 for a, val in v.items() if a in vec and val == -vec[a])

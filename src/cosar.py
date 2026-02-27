@@ -1,6 +1,6 @@
 from pygarg.dung import solver
 
-def aggregate_votes(args: list[str], votes: dict[tuple[str, str], int]) -> dict[str, list[int]]:
+def aggregate_votes(args: list[str], votes: dict[str, dict[str, int]]) -> dict[str, list[int]]:
     """
         Compute the score of each argument based on the votes and return it in this format:
         {
@@ -8,16 +8,17 @@ def aggregate_votes(args: list[str], votes: dict[tuple[str, str], int]) -> dict[
         }
     """
     aggregate_votes = {arg: [0, 0, 0] for arg in args}
-    for (_, argument), vote in votes.items():
-        if argument in aggregate_votes:
-            if vote == -1:
-                aggregate_votes[argument][0] += 1
-            elif vote == 0:
-                aggregate_votes[argument][1] += 1
-            elif vote == 1:
-                aggregate_votes[argument][2] += 1
-            else:
-                raise ValueError(f"Invalid vote value: {vote}. Expected -1, 0, or 1.")
+    for agent, arguments_dict in votes.items():
+        for argument, vote in arguments_dict.items():
+            if argument in aggregate_votes:
+                if vote == -1:
+                    aggregate_votes[argument][0] += 1
+                elif vote == 0:
+                    aggregate_votes[argument][1] += 1
+                elif vote == 1:
+                    aggregate_votes[argument][2] += 1
+                else:
+                    raise ValueError(f"Invalid vote value: {vote}. Expected -1, 0, or 1.")
     return aggregate_votes
 
 def compute_scores(aggregate_votes: dict[str, list[int]]) -> dict[str, float]:
