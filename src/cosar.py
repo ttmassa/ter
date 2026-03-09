@@ -1,5 +1,7 @@
 from pygarg.dung import solver
 
+EPSILON = 0.1  # Global variable: Tolerance threshold 
+
 def aggregate_votes(args: list[str], votes: dict[str, dict[str, int]]) -> dict[str, list[int]]:
     """
         Compute the score of each argument based on the votes and return it in this format:
@@ -38,11 +40,19 @@ def compute_scores(aggregate_votes: dict[str, list[int]]) -> dict[str, float]:
 def prune_attacks(atts: list[list[str]], scores: dict[str, float]) -> list[list[str]]:
     """
         Prune the attacks based on the scores of the arguments. If an argument with a lower score attacks an argument with a higher score, the attack is pruned.
+        Extended version: Reverses the attack if the target is stronger (Attack Reversal).
+        Keeps the attack if the difference is within the tolerance threshold (Gray zones).
     """
     pruned_atts = []
     for attacker, target in atts:
-        if scores[attacker] >= scores[target]:
+        
+        if scores[target] > scores[attacker] + EPSILON:
+            # Attack Reversal
+            pruned_atts.append([target, attacker])
+        else:
+            
             pruned_atts.append([attacker, target])
+            
     return pruned_atts
 
         
@@ -58,4 +68,3 @@ def run(args, atts, votes, semantics):
     extensions = solver.compute_some_extension(args, pruned_atts, semantics)
 
     return pruned_atts, extensions
-    
