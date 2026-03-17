@@ -8,7 +8,7 @@ def aggregate_votes(args: list[str], votes: dict[str, dict[str, int]]) -> dict[s
         }
     """
     aggregate_votes = {arg: [0, 0, 0] for arg in args}
-    for agent, arguments_dict in votes.items():
+    for _, arguments_dict in votes.items():
         for argument, vote in arguments_dict.items():
             if argument in aggregate_votes:
                 if vote == -1:
@@ -35,6 +35,42 @@ def compute_scores(aggregate_votes: dict[str, list[int]]) -> dict[str, float]:
             scores[arg] = round(v_plus / (v_minus + v_plus + EPS), 3)
     return scores
 
+def compute_neutral_aware_score(aggregate_votes: dict[str, list[int]], theta_low: float = 0.33, theta_high: float = 0.66) -> dict[str, float]:
+    """
+        Compute the neutral-aware score of each argument using the formula given in the paper.    
+    """
+    # Start by computing the base scores using the original formula
+    base_scores = compute_scores(aggregate_votes)
+    scores = {}
+
+    for arg, votes in aggregate_votes.items():
+        v_minus, v_zero, v_plus = votes
+        base_score = base_scores[arg]
+
+        total_votes = v_minus + v_zero + v_plus
+        decided_votes = v_minus + v_plus
+
+        # Neutral proportion
+        neutral_proportion = (v_zero / total_votes) if total_votes > 0 else 0.0
+
+        # Dividing-power index (DPI)
+        dpi = (1 - (abs(v_plus - v_minus) / decided_votes)) if decided_votes > 0 else 0.0
+
+        # Classify argument based on their DPI
+        if dpi < theta_low:
+            class_weight = 1.0
+        elif dpi < theta_high:
+            class_weight = 0.6
+        else:
+            class_weight = 0.3
+
+        # Neutral influence coefficient (NIC)
+        nic = min(1.0, class_weight * neutral_proportion)
+
+        # Final neutral-aware score
+        scores[arg] = round((1 - nic) * base_score + nic * 0.5, 3)
+    return scores
+
 def prune_attacks(atts: list[list[str]], scores: dict[str, float]) -> list[list[str]]:
     """
         Prune the attacks based on the scores of the arguments. If an argument with a lower score attacks an argument with a higher score, the attack is pruned.
@@ -58,4 +94,3 @@ def run(args, atts, votes, semantics):
     extensions = solver.compute_some_extension(args, pruned_atts, semantics)
 
     return pruned_atts, extensions
-    
