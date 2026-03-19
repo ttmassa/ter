@@ -6,3 +6,6 @@ __pycache__/
 
 # data results
 data/results/
+
+# meetings
+meeting.md
