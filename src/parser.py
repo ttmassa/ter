@@ -2,6 +2,10 @@ def read_apx(file_path: str):
     """
         Parse the arguments, attacks, and votes from the given file.
     """
+    # Validate file extension
+    if not file_path.endswith('.apx'):
+        raise ValueError(f"File extension must be .apx, got: {file_path}")
+
     arguments = []
     attacks = []
     votes = {}
@@ -22,28 +26,37 @@ def read_apx(file_path: str):
                 attacks.append(att)
             elif line.startswith('vot'):
                 vote = _parse_vote(line, file_path, line_counter)
-                # Make sure to check for votes on non-existent arguments
-                for arguments_dict in vote.values():
-                    for argument in arguments_dict:
-                        if argument not in arguments:
-                            raise ValueError(f"Vote for non-existent argument: {argument}, line {line_counter}, in {file_path}.")
                 # Merge vote into votes dict, updating nested dict for agent
                 for agent, arguments_dict in vote.items():
                     if agent not in votes:
                         votes[agent] = {}
-                    # Check for duplicate votes (same agent voting on the same argument twice)
                     for argument, vote_value in arguments_dict.items():
+                        # Check for votes on non-existent arguments
+                        if argument not in arguments:
+                            raise ValueError(f"Vote for non-existent argument: {argument}, line {line_counter}, in {file_path}.")
+                        # Check for duplicate votes (same agent voting on the same argument twice)
                         if argument in votes[agent]:
                             raise ValueError(f"Duplicate vote from agent '{agent}' for argument '{argument}', line {line_counter}, in {file_path}.")
                         votes[agent][argument] = vote_value
             else:
                 raise ValueError(f"Invalid line format: {line}. Expected lines to start with 'arg', 'att', or 'vot', line {line_counter}, in {file_path}.")
+            
+    # Add neutral votes for any arguments that were not voted on by an agent
+    for agent in votes:
+        for argument in arguments:
+            if argument not in votes[agent]:
+                votes[agent][argument] = 0
+    
     return arguments, attacks, votes
 
 def write_apx(file_path: str, args: list[str], atts: list[list[str]], votes: dict[str, dict[str, int]]) -> None:
     """
         Write the arguments, attacks, and votes to the given file in the APX format.
     """
+    # Validate file extension
+    if not file_path.endswith('.apx'):
+        raise ValueError(f"File extension must be .apx, got: {file_path}")
+
     with open(file_path, 'w') as f:
         for arg in args:
             f.write(f"arg({arg}).\n")
@@ -51,6 +64,9 @@ def write_apx(file_path: str, args: list[str], atts: list[list[str]], votes: dic
             f.write(f"att({att[0]}, {att[1]}).\n")
         for agent, arguments_dict in votes.items():
             for argument, vote in arguments_dict.items():
+                # Skip neutral votes since they are equivalent to missing votes
+                if vote == 0:
+                    continue
                 f.write(f"vot({agent}, {argument}, {vote}).\n")
 
 def display_parsed_content(args: list[str], atts: list[list[str]], votes: dict[str, dict[str, int]]) -> None:
@@ -113,7 +129,7 @@ def _parse_vote(line: str, file_path: str, line_number: int) -> dict[str, dict[s
     agent, argument, vote_str = parts
 
     # Check if the vote is a valid value
-    if vote_str not in ['-1', '0', '1']:
-        raise ValueError(f"Invalid vote value: {vote_str}. Expected '-1', '0', or '1', line {line_number}, in {file_path}.")
+    if vote_str not in ['-1', '1']:
+        raise ValueError(f"Invalid vote value: {vote_str}. Expected '-1', or '1', line {line_number}, in {file_path}.")
 
     return {agent: {argument: int(vote_str)}}
