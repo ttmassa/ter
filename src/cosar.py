@@ -19,6 +19,7 @@ def aggregate_votes(args: list[str], votes: dict[str, dict[str, int]]) -> dict[s
                     aggregate_votes[argument][2] += 1
                 else:
                     raise ValueError(f"Invalid vote value: {vote}. Expected -1, 0, or 1.")
+    print("Aggregate Votes:", aggregate_votes)
     return aggregate_votes
 
 def compute_scores(aggregate_votes: dict[str, list[int]]) -> dict[str, float]:
@@ -82,15 +83,59 @@ def prune_attacks(atts: list[list[str]], scores: dict[str, float]) -> list[list[
     return pruned_atts
 
         
-def run(args, atts, votes, semantics):
+def run(args, atts, votes, semantics, aggregation_method="base"):
     """
         Run the COSAR algorithm on the given argumentation system.
     """
     aggregate = aggregate_votes(args, votes)
-    scores = compute_scores(aggregate)
+    # Run the correct aggregation method based on the input parameter
+    if aggregation_method == "neutral-aware" or aggregation_method == "na":
+        scores = compute_neutral_aware_score(aggregate)
+    else:
+        scores = compute_scores(aggregate)
+    print("Scores:", scores)
     pruned_atts = prune_attacks(atts, scores)
 
     # Compute extensions using pygarg solver
     extensions = solver.compute_some_extension(args, pruned_atts, semantics)
 
     return pruned_atts, extensions
+
+if __name__ == "__main__":
+    # Example usage
+    args = ["A", "B", "C"]
+    atts = [["A", "B"], ["B", "C"], ["C", "A"]]
+
+    # Scenario designed to highlight the impact of neutral votes:
+    # - A has very high base support but mostly neutral votes overall
+    # - B has lower base support but more decided votes
+    votes = {
+        "voter1": {"A": 1, "B": 1, "C": -1},
+        "voter2": {"A": 1, "B": 1, "C": -1},
+        "voter3": {"A": 0, "B": 1, "C": -1},
+        "voter4": {"A": 0, "B": 1, "C": -1},
+        "voter5": {"A": 0, "B": 1, "C": -1},
+        "voter6": {"A": 0, "B": 1, "C": -1},
+        "voter7": {"A": 0, "B": -1, "C": 0},
+        "voter8": {"A": 0, "B": -1, "C": 0},
+        "voter9": {"A": 0, "B": 0, "C": 0},
+        "voter10": {"A": 0, "B": 0, "C": 0},
+        "voter11": {"A": 0, "B": 0, "C": 0},
+        "voter12": {"A": 0, "B": 0, "C": 0},
+        "voter13": {"A": 0, "B": 0, "C": 0},
+        "voter14": {"A": 0, "B": 0, "C": 0},
+        "voter15": {"A": 0, "B": 0, "C": 1},
+        "voter16": {"A": 0, "B": 0, "C": 1}
+    }
+
+    # Base aggregation
+    print("BASE AGGREGATION\n")
+    pruned_atts, extensions = run(args, atts, votes, semantics="PR")
+    print(f"Pruned Attacks: {pruned_atts}")
+    print(f"Extensions: {extensions}\n")
+
+    # Neutral-aware aggregation
+    print("NEUTRAL-AWARE AGGREGATION\n")
+    pruned_atts_na, extensions_na = run(args, atts, votes, semantics="PR", aggregation_method="neutral-aware")
+    print(f"Pruned Attacks (Neutral-Aware): {pruned_atts_na}")
+    print(f"Extensions (Neutral-Aware): {extensions_na}")
