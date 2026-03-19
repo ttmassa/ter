@@ -38,7 +38,7 @@ def compute_scores(aggregate_votes: dict[str, list[int]]) -> dict[str, float]:
 
 def compute_neutral_aware_score(aggregate_votes: dict[str, list[int]], theta_low: float = 0.33, theta_high: float = 0.66) -> dict[str, float]:
     """
-        Compute the neutral-aware score of each argument using the formula given in the paper.    
+        Compute the neutral-aware score of each argument using the formula given in neutral_aware_definition.md. 
     """
     # Start by computing the base scores using the original formula
     base_scores = compute_scores(aggregate_votes)
