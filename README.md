@@ -1,16 +1,16 @@
 # TER - COSAR/CSS CLI
 
-Unified command-line tool to run two approaches on argumentation frameworks:
+Command-line tool for two analyses of argumentation frameworks:
 
 - `cosar`: prune attacks using vote-based argument scores.
 - `css`: rank extensions using Collective Satisfaction Semantics.
 
-The main entry point is `src/cli.py`.
+Main entry point: `src/cli.py`.
 
 ## Requirements
 
 - Python 3.10+
-- Dependencies in `requirements.txt`
+- Dependencies listed in `requirements.txt`
 
 ## Setup
 
@@ -22,11 +22,37 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-## How to use
+## Algorithms
 
-We provide three ways to run the tool:
+### COSAR
 
-### 1) Interactive mode
+Given arguments, attacks, and votes, COSAR computes a score for each argument, removes attacks that are incompatible with the score ordering, then computes extensions on the pruned framework.
+
+For an attack $x \to y$, the attack is kept iff $score(x) \ge score(y)$.
+
+#### Aggregation modes in the implementation
+
+The COSAR implementation (`src/cosar.py`) currently provides two aggregation modes in Python API:
+
+- `base` (default)
+- `neutral-aware` (alias: `na`)
+
+The CLI currently runs COSAR with the default `base` mode.
+
+The COSAR algorithm used here is based on Section 4.3 in `ter.pdf`.
+The base aggregation definition is given in Definition 23 of `ter.pdf`.
+The neutral-aware aggregation definition is documented in `neutral_aware_definition.md`.
+
+### CSS
+
+CSS ranks extensions computed under a chosen semantics using:
+
+- measure in `{S, D, U}`
+- aggregation in `{sum, min, leximax, leximin}`
+
+## CLI usage
+
+### Interactive mode
 
 Run:
 
@@ -34,72 +60,81 @@ Run:
 python src/cli.py
 ```
 
-Steps:
+Interactive flow:
 
-1. Choose algorithm (`cosar` or `css`)
-2. File list + commands menu
-3. Pick file number to run
+1. Choose algorithm (`cosar` or `css`).
+2. Optionally set semantics.
+3. Select a data file or use menu commands.
 
-In the file menu, you can select one of the following commands:
+File-menu commands:
 
-- `<number>`: run this file
-- `v<number>`: view parsed content of this file
-- `a`: switch algorithm (without quitting)
-- `p`: configure CSS params (only when algorithm is `css`)
+- `<number>`: run selected file
+- `v<number>`: display parsed content of selected file
+- `a`: switch algorithm
+- `s`: set semantics
+- `p`: configure CSS parameters (available only when algorithm is `css`)
 - `q`: quit
 
-When `css` is selected, you can configure:
+## Command-line options
 
-- `semantics` (e.g. `PR`, `ST`, `CO`)
-- `measure` in `{S, D, U}`
-- `agg` in `{sum, min, leximax, leximin}`
+```text
+--algorithm {cosar,css}                 default: cosar
+--file FILE                             APX file path or file name in data/
+--args CUSTOM_ARGS                      custom arguments (Python literal list)
+--atts CUSTOM_ATTS                      custom attacks (Python literal list)
+--votes CUSTOM_VOTES                    custom votes (Python literal nested dict)
+--no-write                              skip COSAR output file creation
+--show-input                            display parsed input before execution
+--semantics SEMANTICS                   default: PR
+--measure {S,D,U}                       default: U
+--agg {sum,min,leximax,leximin}         default: sum
+```
 
-### 2) Run with explicit options
+Valid semantics in interactive validation: `CF`, `AD`, `ST`, `CO`, `PR`, `GR`, `ID`, `SST`.
 
-#### COSAR
+## Typical commands
+
+COSAR on a file:
 
 ```bash
 python src/cli.py --algorithm cosar --file as_01.apx
 ```
 
-Without `--no-write`, COSAR writes:
-
-- `data/results/<source>_result.apx`
-
-To disable output file creation, you can use `--no-write`:
+COSAR without writing output file:
 
 ```bash
 python src/cli.py --algorithm cosar --file as_01.apx --no-write
 ```
 
-#### CSS
+CSS on a file:
 
 ```bash
 python src/cli.py --algorithm css --file as_01.apx --semantics PR --measure U --agg sum
 ```
 
-Notes:
+Display parsed input before run:
 
-- CSS prints best extension(s).
-- CSS does not generate an output `.apx` file.
+```bash
+python src/cli.py --algorithm cosar --file as_01.apx --show-input
+```
 
-### 3) Custom input mode (no file)
+## Custom input mode
 
-Provide all three together: `--args`, `--atts`, `--votes`.
+Custom input requires all three options together: `--args`, `--atts`, and `--votes`.
 
 Example:
 
 ```bash
 python src/cli.py \
-	--algorithm cosar \
-	--args '["a", "b", "c"]' \
-	--atts '[["a", "b"], ["b", "c"]]' \
-	--votes '{("A", "a"): 1, ("A", "b"): -1, ("B", "c"): 1}'
+  --algorithm cosar \
+  --args '["a", "b", "c"]' \
+  --atts '[["a", "b"], ["b", "c"]]' \
+  --votes '{"A": {"a": 1, "b": -1}, "B": {"c": 1}}'
 ```
 
-## APX format expected by this project
+## APX input format
 
-Input files are plain text with lines like:
+Input files use lines such as:
 
 ```text
 arg(a).
@@ -109,9 +144,17 @@ vot(A, a, 1).
 vot(B, b, -1).
 ```
 
-Accepted vote values: `-1`, `0`, `1`.
+APX vote values accepted by the project format are `-1`, `1`.
+Neutral votes don't need to be included in the input files as they are equivalent to no vote. The parser will automatically handle missing votes and treat them as neutral.
+
+## Outputs
+
+- Before algorithm-specific processing, the CLI computes and prints initial extension(s) for the selected semantics.
+- COSAR prints pruned framework information and best extension(s).
+- COSAR writes `data/results/<source>_result.apx` unless `--no-write` is set.
+- CSS prints best extension(s) and does not write an output `.apx` file.
 
 ## Data folders
 
-- Inputs: `data/*.apx`
+- Input datasets: `data/*.apx`
 - COSAR outputs: `data/results/*.apx`
