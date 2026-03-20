@@ -19,7 +19,6 @@ def aggregate_votes(args: list[str], votes: dict[str, dict[str, int]]) -> dict[s
                     aggregate_votes[argument][2] += 1
                 else:
                     raise ValueError(f"Invalid vote value: {vote}. Expected -1, 0, or 1.")
-    print("Aggregate Votes:", aggregate_votes)
     return aggregate_votes
 
 def compute_scores(aggregate_votes: dict[str, list[int]]) -> dict[str, float]:
@@ -93,7 +92,6 @@ def run(args, atts, votes, semantics, aggregation_method="base"):
         scores = compute_neutral_aware_score(aggregate)
     else:
         scores = compute_scores(aggregate)
-    print("Scores:", scores)
     pruned_atts = prune_attacks(atts, scores)
 
     # Compute extensions using pygarg solver
