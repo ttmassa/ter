@@ -1,6 +1,5 @@
 import argparse
 import ast
-import sys
 from cosar import run as run_cosar
 from css import run as run_css
 from parser import display_parsed_content, read_apx, write_apx
@@ -11,23 +10,59 @@ def main():
     parser = _build_parser()
     cli_args = parser.parse_args()
 
+    # Get list of .apx files in data directory
     repo_root = Path(__file__).resolve().parent.parent
     data_dir = (repo_root / "data").resolve()
-    files = _list_data_files(data_dir)
+    files = sorted(path for path in data_dir.glob("*.apx") if path.is_file())
 
-    _print_welcome()
+    # Print welcome message
+    print("Welcome to COSAR/CSS CLI")
+    print("Start by choosing an algorithm.")
+
+    # Validate custom input and parse if provided, otherwise proceed with file selection
     use_custom_input = _validate_custom_input(parser, cli_args)
-    source_name, args, atts, votes = _load_input(cli_args, parser, repo_root, data_dir, files, use_custom_input)
+    if use_custom_input:
+        source_name = "custom_input"
+        args = _parse_custom_args(cli_args.custom_args)
+        atts = _parse_custom_atts(cli_args.custom_atts)
+        votes = _parse_custom_votes(cli_args.custom_votes)
+    else:
+        if cli_args.file:
+            candidate = Path(cli_args.file)
+            if not candidate.is_absolute():
+                candidate_in_data = data_dir / cli_args.file
+                candidate = candidate_in_data if candidate_in_data.exists() else (repo_root / cli_args.file)
 
+            selected_file = candidate.resolve()
+            if not selected_file.exists() or not selected_file.is_file():
+                parser.error(f"File not found: {cli_args.file}")
+        else:
+            cli_args.algorithm = _select_algorithm_interactively(cli_args.algorithm)
+
+            _select_and_validate_semantics(cli_args)
+
+            if cli_args.algorithm == "css":
+                _select_css_parameters_interactively(cli_args)
+
+            selected_file = _select_file_interactively(files, cli_args)
+
+        # Parse the selected file
+        args, atts, votes = read_apx(str(selected_file))
+        # Use the file name without extension as the source name for output
+        source_name = selected_file.name
+
+    # Display parsed input if requested
     if cli_args.show_input:
         print("\nInput argumentation system:")
         display_parsed_content(args, atts, votes)
 
+    # Display initial extensions before running the selected algorithm
     print(f"\nComputing extensions with semantics '{cli_args.semantics}' before running {cli_args.algorithm.upper()}...")
     initial_extensions = solver.extension_enumeration(args, atts, cli_args.semantics)
     _print_extensions("Initial extension(s) for selected semantics", initial_extensions)
 
     if cli_args.algorithm == "cosar":
+        # Run COSAR
         pruned_atts, extensions = run_cosar(args, atts, votes, cli_args.semantics)
 
         print("\nResulting argumentation system:")
@@ -36,9 +71,10 @@ def main():
         if cli_args.no_write:
             print("\nResult file creation skipped (--no-write).")
             return
-        
+
         _print_extensions("Best extension(s) according to COSAR", extensions)
 
+        # Write results to data/results
         results_dir = repo_root / "data/results"
         results_dir.mkdir(exist_ok=True)
         output_name = f"{source_name}_result.apx"
@@ -46,131 +82,79 @@ def main():
         write_apx(str(output_path), args, pruned_atts, votes)
         print(f"\nResult file available in data/results: {output_path}")
         return
+    elif cli_args.algorithm == "css":
+        if not initial_extensions:
+            print("No extension found for this semantics.")
+            return
 
-    if not initial_extensions:
-        print("No extension found for this semantics.")
+        best_extensions = run_css(
+            initial_extensions,
+            args,
+            votes,
+            measure=cli_args.measure,
+            agg=cli_args.agg,
+        )
+
+        _print_extensions("Best extension(s) according to CSS", best_extensions)
+
+        if not cli_args.no_write:
+            print("\nCSS mode does not generate an output .apx file.")
+        return
+    else:
+        print(f"Unknown algorithm: {cli_args.algorithm}")
         return
 
-    best_extensions = run_css(
-        initial_extensions,
-        args,
-        votes,
-        measure=cli_args.measure,
-        agg=cli_args.agg,
-    )
-
-    _print_extensions("Best extension(s) according to CSS", best_extensions)
-
-    if not cli_args.no_write:
-        print("\nCSS mode does not generate an output .apx file.")
-
-def _list_data_files(data_dir: Path) -> list[Path]:
-    return sorted(path for path in data_dir.glob("*.apx") if path.is_file())
-
-
 def _validate_custom_input(parser: argparse.ArgumentParser, cli_args: argparse.Namespace) -> bool:
+    """
+        Validate that custom input fields are provided together.
+    """
     custom_values = (cli_args.custom_args, cli_args.custom_atts, cli_args.custom_votes)
-    use_custom_input = any(custom_values)
-    if use_custom_input and not all(custom_values):
+    use_custom_input = any(value is not None for value in custom_values)
+    if use_custom_input and not all(value is not None for value in custom_values):
         parser.error("When using custom input, provide --args, --atts, and --votes together.")
-    if use_custom_input and not _flag_is_explicitly_set("--semantics"):
-        parser.error("In custom input mode, --semantics is required.")
     return use_custom_input
 
 
-def _load_input(
-    cli_args: argparse.Namespace,
-    parser: argparse.ArgumentParser,
-    repo_root: Path,
-    data_dir: Path,
-    files: list[Path],
-    use_custom_input: bool,
-) -> tuple[str, list[str], list[list[str]], dict[str, dict[str, int]]]:
+def _select_and_validate_semantics(cli_args: argparse.Namespace) -> None:
     """
-        Load input either from custom arguments, by selecting a file interactively or via --file.
+        Prompt the user to select a semantics value and validate it against the supported list.
+        Loops until valid semantics are provided.
     """
-    if use_custom_input:
-        return (
-            "custom_input",
-            _parse_custom_args(cli_args.custom_args),
-            _parse_custom_atts(cli_args.custom_atts),
-            _parse_custom_votes(cli_args.custom_votes),
-        )
+    # Valid semantics options for pygarg solver
+    VALID_SEMANTICS = {"CF", "AD", "ST", "CO", "PR", "GR", "ID", "SST"}
 
-    if cli_args.file:
-        selected_file = _resolve_input_file(cli_args.file, repo_root, data_dir, parser)
-    else:
-        cli_args.algorithm = _select_algorithm_interactively(cli_args.algorithm)
-        _select_semantics_interactively(cli_args)
-        if cli_args.algorithm == "css":
-            _select_css_parameters_interactively(cli_args)
-        selected_file = _select_file_interactively(files, cli_args)
-
-    args, atts, votes = read_apx(str(selected_file))
-    return selected_file.name, args, atts, votes
-
-
-def _resolve_input_file(
-    file_arg: str,
-    repo_root: Path,
-    data_dir: Path,
-    parser: argparse.ArgumentParser,
-) -> Path:
-    """
-        Resolve the input file path, checking both absolute and data/ directory, and validate existence.
-    """
-    candidate = Path(file_arg)
-    if not candidate.is_absolute():
-        candidate_in_data = data_dir / file_arg
-        candidate = candidate_in_data if candidate_in_data.exists() else (repo_root / file_arg)
-
-    selected_file = candidate.resolve()
-    if not selected_file.exists() or not selected_file.is_file():
-        parser.error(f"File not found: {file_arg}")
-    return selected_file
-
-
-def _print_welcome():
-    print("Welcome to COSAR/CSS CLI")
-    print("Start by choosing an algorithm.")
-
-
-def _print_file_menu(files: list[Path], cli_args: argparse.Namespace) -> None:
-    print("\nAvailable data files:")
-    if not files:
-        print("  (no .apx files found in data directory)")
-    else:
-        for index, file_path in enumerate(files, start=1):
-            print(f"  {index}. {file_path.name}")
-
-    print("\nChoose an option:")
-    print("  <number>   Run this file")
-    print("  v<number>  View parsed content of this file")
-    print("  a          Switch algorithm")
-    print(f"  s          Set semantics (current: {cli_args.semantics})")
-    if cli_args.algorithm == "css":
-        print("  p          Configure CSS parameters")
-        print(f"             (measure={cli_args.measure}, agg={cli_args.agg})")
-    print("  q          Quit")
-
-
-def _parse_file_index(raw_value: str, files_count: int, error_example: str) -> int | None:
-    if not raw_value.isdigit():
-        print(error_example)
-        return None
-    index = int(raw_value)
-    if index < 1 or index > files_count:
-        print("Invalid file number.")
-        return None
-    return index
-
+    while True:
+        semantics = input(f"\nSet semantics [{cli_args.semantics}]: ").strip().upper()
+        if not semantics:
+            return  # User pressed Enter without input, keep current semantics
+        if semantics not in VALID_SEMANTICS:
+            print(f"Invalid semantics '{semantics}'. Valid options: {', '.join(sorted(VALID_SEMANTICS))}")
+            continue
+        cli_args.semantics = semantics
+        return
 
 def _select_file_interactively(files: list[Path], cli_args: argparse.Namespace) -> Path:
+    """
+        Prompt the user to select a file from the list of available .apx files.
+    """
     if not files:
         raise ValueError("No .apx files available in data directory.")
 
     while True:
-        _print_file_menu(files, cli_args)
+        print("\nAvailable data files:")
+        for index, file_path in enumerate(files, start=1):
+            print(f"  {index}. {file_path.name}")
+
+        print("\nChoose an option:")
+        print("  <number>   Run this file")
+        print("  v<number>  View parsed content of this file")
+        print("  a          Switch algorithm")
+        print(f"  s          Set semantics (current: {cli_args.semantics})")
+        if cli_args.algorithm == "css":
+            print("  p          Configure CSS parameters")
+            print(f"             (measure={cli_args.measure}, agg={cli_args.agg})")
+        print("  q          Quit")
+
         choice = input("> ").strip().lower()
 
         if choice == "q":
@@ -183,7 +167,7 @@ def _select_file_interactively(files: list[Path], cli_args: argparse.Namespace) 
             continue
 
         if choice == "s":
-            _select_semantics_interactively(cli_args)
+            _select_and_validate_semantics(cli_args)
             continue
 
         if choice == "p":
@@ -194,23 +178,36 @@ def _select_file_interactively(files: list[Path], cli_args: argparse.Namespace) 
             continue
 
         if choice.startswith("v"):
-            index = _parse_file_index(choice[1:], len(files), "Invalid choice. Example: v2")
-            if index is None:
+            if not choice[1:].isdigit():
+                print("Invalid choice. Example: v2")
                 continue
+
+            index = int(choice[1:])
+            if index < 1 or index > len(files):
+                print("Invalid file number.")
+                continue
+
             selected = files[index - 1]
             file_args, file_atts, file_votes = read_apx(str(selected))
             print(f"\nParsed content of {selected.name}:")
             display_parsed_content(file_args, file_atts, file_votes)
             continue
 
-        index = _parse_file_index(choice, len(files), "Invalid choice. Enter a number, v<number>, or q.")
-        if index is None:
+        if not choice.isdigit():
+            print("Invalid choice. Enter a number, v<number>, or q.")
+            continue
+
+        index = int(choice)
+        if index < 1 or index > len(files):
+            print("Invalid file number.")
             continue
 
         return files[index - 1]
 
-
 def _select_algorithm_interactively(default_algorithm: str) -> str:
+    """
+        Prompt the user to select an algorithm (COSAR or CSS).
+    """
     while True:
         print("\nChoose an algorithm:")
         print("  1  cosar")
@@ -227,14 +224,10 @@ def _select_algorithm_interactively(default_algorithm: str) -> str:
 
         print("Invalid choice. Enter 1, 2, cosar, css, or press Enter.")
 
-
-def _select_semantics_interactively(cli_args: argparse.Namespace) -> None:
-    semantics = input(f"\nSet semantics [{cli_args.semantics}]: ").strip().upper()
-    if semantics:
-        cli_args.semantics = semantics
-
-
 def _print_extensions(title: str, extensions) -> None:
+    """
+        Print the given extensions.
+    """
     normalized_extensions = [extensions] if isinstance(extensions, (set, frozenset)) else list(extensions)
     print(f"\n{title}:")
     if not normalized_extensions:
@@ -243,12 +236,10 @@ def _print_extensions(title: str, extensions) -> None:
     for extension in normalized_extensions:
         print("{" + ", ".join(sorted(extension)) + "}")
 
-
-def _flag_is_explicitly_set(flag_name: str) -> bool:
-    return any(arg == flag_name or arg.startswith(f"{flag_name}=") for arg in sys.argv[1:])
-
-
 def _select_css_parameters_interactively(cli_args: argparse.Namespace) -> None:
+    """
+        Prompt the user to configure CSS parameters (measure and aggregation).
+    """
     print("\nConfigure CSS parameters:")
 
     while True:
@@ -258,8 +249,7 @@ def _select_css_parameters_interactively(cli_args: argparse.Namespace) -> None:
         if measure in {"S", "D", "U"}:
             cli_args.measure = measure
             break
-        else:
-            print("  Invalid measure. Choose S, D, or U.")
+        print("  Invalid measure. Choose S, D, or U.")
 
     while True:
         agg = input(f"  Aggregation sum/min/leximax/leximin [{cli_args.agg}]: ").strip().lower()
@@ -270,13 +260,11 @@ def _select_css_parameters_interactively(cli_args: argparse.Namespace) -> None:
             break
         print("  Invalid aggregation. Choose sum, min, leximax, or leximin.")
 
-
 def _parse_custom_args(raw_args: str) -> list[str]:
     parsed = ast.literal_eval(raw_args)
     if not isinstance(parsed, list) or not all(isinstance(item, str) for item in parsed):
-        raise ValueError("--args must be a Python list of strings, e.g. '[\"a\", \"b\"]'.")
+        raise ValueError('--args must be a Python list of strings, e.g. ["a", "b"].')
     return parsed
-
 
 def _parse_custom_atts(raw_atts: str) -> list[list[str]]:
     parsed = ast.literal_eval(raw_atts)
@@ -292,7 +280,6 @@ def _parse_custom_atts(raw_atts: str) -> list[list[str]]:
             raise ValueError("Each attack must contain string values.")
         normalized.append([attacker, target])
     return normalized
-
 
 def _parse_custom_votes(raw_votes: str) -> dict[str, dict[str, int]]:
     parsed = ast.literal_eval(raw_votes)
@@ -310,11 +297,10 @@ def _parse_custom_votes(raw_votes: str) -> dict[str, dict[str, int]]:
         for argument, value in argument_votes.items():
             if not isinstance(argument, str):
                 raise ValueError("Argument names must be strings.")
-            if value not in (-1, 0, 1):
-                raise ValueError("Vote values must be -1, 0, or 1.")
+            if value not in (-1, 1):
+                raise ValueError("Vote values must be -1, or 1.")
             normalized[agent][argument] = int(value)
     return normalized
-
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Run COSAR or CSS on an APX dataset or custom input.")
@@ -333,19 +319,19 @@ def _build_parser() -> argparse.ArgumentParser:
         "--args",
         dest="custom_args",
         type=str,
-        help="Custom arguments as Python literal list, e.g. '[\"a\", \"b\"]'.",
+        help='Custom arguments as Python literal list, e.g. ["a", "b"].',
     )
     parser.add_argument(
         "--atts",
         dest="custom_atts",
         type=str,
-        help="Custom attacks as Python literal list, e.g. '[[\"a\", \"b\"], [\"b\", \"c\"]]'.",
+        help='Custom attacks as Python literal list, e.g. [["a", "b"], ["b", "c"]].',
     )
     parser.add_argument(
         "--votes",
         dest="custom_votes",
         type=str,
-        help="Custom votes as Python literal nested dict, e.g. '{\"A\": {\"a\": 1, \"b\": -1}, \"B\": {\"c\": 0}}'.",
+        help='Custom votes as Python literal nested dict, e.g. {"A": {"a": 1, "b": -1}, "B": {"c": 1}}.',
     )
     parser.add_argument(
         "--no-write",
