@@ -39,9 +39,9 @@ The COSAR implementation (`src/cosar.py`) currently provides two aggregation mod
 
 The CLI currently runs COSAR with the default `base` mode.
 
-The COSAR algorithm used here is based on Section 4.3 in `ter.pdf`.
-The base aggregation definition is given in Definition 23 of `ter.pdf`.
-The neutral-aware aggregation definition is documented in `neutral_aware_definition.md`.
+The COSAR algorithm used here is based on Section 4.3 in `Collective Satisfaction Semantics for Opinion Based Argumentation.pdf`.  
+The base aggregation definition is given in Definition 23 of `Collective Satisfaction Semantics for Opinion Based Argumentation.pdf`.  
+The neutral-aware aggregation definition is documented in `neutral_aware_definition.md`.  
 
 ### CSS
 
@@ -154,7 +154,9 @@ Neutral votes don't need to be included in the input files as they are equivalen
 - COSAR writes `data/results/<source>_result.apx` unless `--no-write` is set.
 - CSS prints best extension(s) and does not write an output `.apx` file.
 
-## Data folders
+## Acknowledgments
 
-- Input datasets: `data/*.apx`
-- COSAR outputs: `data/results/*.apx`
+This implementation is grounded in the formal framework presented in `Collective Satisfaction Semantics for Opinion Based Argumentation.pdf`.
+The software implementation also relies on the `pygarg` engine for argumentation reasoning, as described in `pygarg: A Python Engine for Argumentation.pdf`.
+
+This repository is released as open-source research software; citation of these references is appreciated but not required.
