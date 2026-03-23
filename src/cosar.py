@@ -71,6 +71,18 @@ def compute_neutral_aware_score(aggregate_votes: dict[str, list[int]], theta_low
         scores[arg] = round((1 - nic) * base_score + nic * 0.5, 3)
     return scores
 
+def compute_bayesian_score(aggregate_votes: dict[str, list[int]], epsilon: float = 0.1) -> dict[str, float]:
+    """
+        Compute the neutral-aware score of each argument using the Bayesian approach.
+    """
+    scores = {}
+    for arg, votes in aggregate_votes.items():
+        v_minus, v_zero, v_plus = votes
+        numerateur = v_plus + (v_zero * 0.5)
+        denominateur = v_plus + v_minus + v_zero + epsilon
+        scores[arg] = round(numerateur / denominateur, 3)
+    return scores
+
 def prune_attacks(atts: list[list[str]], scores: dict[str, float]) -> list[list[str]]:
     """
         Prune the attacks based on the scores of the arguments. If an argument with a lower score attacks an argument with a higher score, the attack is pruned.
@@ -90,6 +102,8 @@ def run(args, atts, votes, semantics, aggregation_method="base"):
     # Run the correct aggregation method based on the input parameter
     if aggregation_method == "neutral-aware" or aggregation_method == "na":
         scores = compute_neutral_aware_score(aggregate)
+    elif aggregation_method == "bayesian":
+        scores = compute_bayesian_score(aggregate)
     else:
         scores = compute_scores(aggregate)
     pruned_atts = prune_attacks(atts, scores)
@@ -136,4 +150,10 @@ if __name__ == "__main__":
     print("NEUTRAL-AWARE AGGREGATION\n")
     pruned_atts_na, extensions_na = run(args, atts, votes, semantics="PR", aggregation_method="neutral-aware")
     print(f"Pruned Attacks (Neutral-Aware): {pruned_atts_na}")
-    print(f"Extensions (Neutral-Aware): {extensions_na}")
+    print(f"Extensions (Neutral-Aware): {extensions_na}\n")
+
+    # Bayesian aggregation
+    print("BAYESIAN AGGREGATION\n")
+    pruned_atts_bayesian, extensions_bayesian = run(args, atts, votes, semantics="PR", aggregation_method="bayesian")
+    print(f"Pruned Attacks (Bayesian): {pruned_atts_bayesian}")
+    print(f"Extensions (Bayesian): {extensions_bayesian}")
