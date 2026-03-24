@@ -70,10 +70,8 @@ We assign a class-dependent weight $\omega$:
 Then define the neutral influence coefficient (NIC) as:
 
 $$
-\alpha(x) = \min(1, \omega(C(x))\cdot\eta(x))
+\alpha(x) = \min(1, \omega(\pi(x))\cdot\eta(x))
 $$
-
-where $C(x)$ is the DPI of argument $x$.
 
 ### Neutral-aware aggregation
 
