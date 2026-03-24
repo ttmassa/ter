@@ -19,6 +19,7 @@ def aggregate_votes(args: list[str], votes: dict[str, dict[str, int]]) -> dict[s
                     aggregate_votes[argument][2] += 1
                 else:
                     raise ValueError(f"Invalid vote value: {vote}. Expected -1, 0, or 1.")
+    print(f"Votes: {aggregate_votes}")
     return aggregate_votes
 
 def compute_scores(aggregate_votes: dict[str, list[int]]) -> dict[str, float]:
@@ -33,6 +34,7 @@ def compute_scores(aggregate_votes: dict[str, list[int]]) -> dict[str, float]:
             scores[arg] = 0.0
         else:
             scores[arg] = round(v_plus / (v_minus + v_plus + EPS), 3)
+    print(f"Scores: {scores}")
     return scores
 
 def compute_neutral_aware_score(aggregate_votes: dict[str, list[int]], theta_low: float = 0.33, theta_high: float = 0.66) -> dict[str, float]:
@@ -54,21 +56,14 @@ def compute_neutral_aware_score(aggregate_votes: dict[str, list[int]], theta_low
         neutral_proportion = (v_zero / total_votes) if total_votes > 0 else 0.0
 
         # Dividing-power index (DPI)
-        dpi = (1 - (abs(v_plus - v_minus) / decided_votes)) if decided_votes > 0 else 0.0
-
-        # Classify argument based on their DPI
-        if dpi < theta_low:
-            class_weight = 1.0
-        elif dpi < theta_high:
-            class_weight = 0.6
-        else:
-            class_weight = 0.3
+        dpi = (abs(v_plus - v_minus) / decided_votes) if decided_votes > 0 else 0.0
 
         # Neutral influence coefficient (NIC)
-        nic = min(1.0, class_weight * neutral_proportion)
+        nic = min(1, neutral_proportion * dpi)
 
         # Final neutral-aware score
         scores[arg] = round((1 - nic) * base_score + nic * 0.5, 3)
+    print(f"Scores: {scores}")
     return scores
 
 def prune_attacks(atts: list[list[str]], scores: dict[str, float]) -> list[list[str]]:
