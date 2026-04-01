@@ -32,6 +32,54 @@ $$
 NIC(x) = \min(1, N(x) * DPI(x))
 $$
 
+
+
+## Weighted Conflict Tolerance Semantics
+
+Let $\mathcal{O} = \langle \langle \mathcal{Ar}, att \rangle, \mathcal{V}_{\mathcal{Ar}} \rangle$ be an OBAF and $x \in \mathcal{Ar}$. 
+
+For any argument $x$, let $P(x) = |v^+(x)|$, $C(x) = |v^-(x)|$, and $N(x) = |v^0(x)|$. The total number of votes is $Total(x) = P(x) + C(x) + N(x)$.
+
+We define the **Neutral-Aware Force** $\tau^N(x)$ and the **Stability** $Stab(x)$ of an argument as follows:
+
+$$
+\tau^N(x) = 
+\begin{cases}
+    0 & \text{if } Total(x) = 0 \\
+    \frac{P(x) + 0.5 N(x)}{Total(x)} & \text{otherwise}
+\end{cases}
+$$
+
+$$
+Stab(x) = 
+\begin{cases}
+    0 & \text{if } Total(x) = 0 \\
+    \frac{N(x)}{Total(x)} & \text{otherwise}
+\end{cases}
+$$
+
+### Attack Weight ($W$)
+Every attack $(x, y) \in att$ produces a cost, or weight, defined as the difference between the attacker's force and the target's stability:
+
+$$
+W(x, y) = \max(0, \tau^N(x) - Stab(y))
+$$
+
+### Tolerance-Free Extensions
+Let $E \subseteq \mathcal{Ar}$ be a set of arguments (an extension). The total cost of internal conflicts within $E$ is the sum of the weights of all attacks between arguments in $E$:
+
+$$
+Cost(E) = \sum_{(x, y) \in att \cap (E \times E)} W(x, y)
+$$
+
+Given a tolerance threshold $K \ge 0$, an extension $E$ is considered **$K$-Tolerance-Free** if:
+
+$$
+Cost(E) \le K
+$$
+
+This replaces the traditional conflict-free property, allowing arguments to be accepted together if their internal conflict cost does not exceed $K$.
+
 Finally, the neutral-aware score is computed as:
 
 $$\tau_{\epsilon}^N(x) = (1 - NIC(x)) * \tau_{\epsilon}(x) + NIC(x) * 0.5$$
