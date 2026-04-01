@@ -106,6 +106,9 @@ def run(args, atts, votes, semantics, aggregation_method="base"):
         scores = compute_bayesian_score(aggregate)
     else:
         scores = compute_scores(aggregate)
+        
+    print(f"Scores calculés ({aggregation_method}) : {scores}")
+    
     pruned_atts = prune_attacks(atts, scores)
 
     # Compute extensions using pygarg solver
