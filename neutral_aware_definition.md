@@ -35,7 +35,7 @@ $$
 \pi(x)=
 \begin{cases}
 0 & \text{if } p(x)+m(x)=0 \\
-1-\frac{|p(x)-m(x)|}{p(x)+m(x)} & \text{otherwise}
+1-\frac{p(x)-m(x)}{p(x)+m(x)} & \text{otherwise}
 \end{cases}
 $$
 
@@ -70,17 +70,15 @@ We assign a class-dependent weight $\omega$:
 Then define the neutral influence coefficient (NIC) as:
 
 $$
-\alpha(x) = \min(1, \omega(C(x))\cdot\eta(x))
+\alpha(x) = \min(1, \omega(\pi(x))\cdot\eta(x))
 $$
-
-where $C(x)$ is the DPI of argument $x$.
 
 ### Neutral-aware aggregation
 
 The final neutral-aware opinion aggregation function is:
 
 $$
-\tau_\epsilon^N(x) = (1-\alpha(x))\,b_\epsilon(x) + \alpha(x)\cdot 0.5
+\tau_\epsilon^N(x) = (1-\alpha(x))\ b_\epsilon(x) + \alpha(x)\cdot 0.5
 $$
 
 This formula is a convex combination of the original base score $b_\epsilon(x)$ and $0.5$ (indecision), where the weight $\alpha(x)$ depends on the proportion of neutral votes and the divisiveness of the argument.
