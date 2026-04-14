@@ -34,7 +34,6 @@ def compute_scores(aggregate_votes: dict[str, list[int]]) -> dict[str, float]:
             scores[arg] = 0.0
         else:
             scores[arg] = round(v_plus / (v_minus + v_plus + EPS), 3)
-    print(f"Scores: {scores}")
     return scores
 
 def compute_neutral_aware_score(aggregate_votes: dict[str, list[int]], theta_low: float = 0.33, theta_high: float = 0.66) -> dict[str, float]:
@@ -63,7 +62,6 @@ def compute_neutral_aware_score(aggregate_votes: dict[str, list[int]], theta_low
 
         # Final neutral-aware score
         scores[arg] = round((1 - nic) * base_score + nic * 0.5, 3)
-    print(f"Scores: {scores}")
     return scores
 
 def compute_bayesian_score(aggregate_votes: dict[str, list[int]], epsilon: float = 0.1, neutral_weight: float = 0.5) -> dict[str, float]:
@@ -102,7 +100,7 @@ def run(args, atts, votes, semantics, aggregation_method="base", neutral_weight=
     else:
         scores = compute_scores(aggregate)
         
-    print(f"Scores calculés ({aggregation_method}) : {scores}")
+    print(f"Scores ({aggregation_method}): {scores}")
     
     pruned_atts = prune_attacks(atts, scores)
 

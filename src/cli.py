@@ -41,7 +41,9 @@ def main():
 
             _select_and_validate_semantics(cli_args)
 
-            if cli_args.algorithm == "css":
+            if cli_args.algorithm == "cosar":
+                _select_cosar_parameters_interactively(cli_args)
+            elif cli_args.algorithm == "css":
                 _select_css_parameters_interactively(cli_args)
 
             selected_file = _select_file_interactively(files, cli_args)
@@ -63,7 +65,14 @@ def main():
 
     if cli_args.algorithm == "cosar":
         # Run COSAR
-        pruned_atts, extensions = run_cosar(args, atts, votes, cli_args.semantics)
+        pruned_atts, extensions = run_cosar(
+            args,
+            atts,
+            votes,
+            cli_args.semantics,
+            aggregation_method=cli_args.aggregation_method,
+            neutral_weight=cli_args.neutral_weight,
+        )
 
         print("\nResulting argumentation system:")
         display_parsed_content(args, pruned_atts, votes)
@@ -124,7 +133,7 @@ def _select_and_validate_semantics(cli_args: argparse.Namespace) -> None:
     VALID_SEMANTICS = {"CF", "AD", "ST", "CO", "PR", "GR", "ID", "SST"}
 
     while True:
-        semantics = input(f"\nSet semantics [{cli_args.semantics}]: ").strip().upper()
+        semantics = input(f"\nSet semantics CF/AD/ST/CO/PR/GR/ID/SST [{cli_args.semantics}]: ").strip().upper()
         if not semantics:
             return  # User pressed Enter without input, keep current semantics
         if semantics not in VALID_SEMANTICS:
@@ -150,6 +159,9 @@ def _select_file_interactively(files: list[Path], cli_args: argparse.Namespace) 
         print("  v<number>  View parsed content of this file")
         print("  a          Switch algorithm")
         print(f"  s          Set semantics (current: {cli_args.semantics})")
+        if cli_args.algorithm == "cosar":
+            print("  m          Configure COSAR aggregation")
+            print(f"             (aggregation={cli_args.aggregation_method}, neutral_weight={cli_args.neutral_weight})")
         if cli_args.algorithm == "css":
             print("  p          Configure CSS parameters")
             print(f"             (measure={cli_args.measure}, agg={cli_args.agg})")
@@ -162,7 +174,9 @@ def _select_file_interactively(files: list[Path], cli_args: argparse.Namespace) 
 
         if choice == "a":
             cli_args.algorithm = _select_algorithm_interactively(cli_args.algorithm)
-            if cli_args.algorithm == "css":
+            if cli_args.algorithm == "cosar":
+                _select_cosar_parameters_interactively(cli_args)
+            elif cli_args.algorithm == "css":
                 _select_css_parameters_interactively(cli_args)
             continue
 
@@ -175,6 +189,13 @@ def _select_file_interactively(files: list[Path], cli_args: argparse.Namespace) 
                 print("CSS parameters are only available when algorithm is css.")
                 continue
             _select_css_parameters_interactively(cli_args)
+            continue
+
+        if choice == "m":
+            if cli_args.algorithm != "cosar":
+                print("COSAR aggregation is only available when algorithm is cosar.")
+                continue
+            _select_cosar_parameters_interactively(cli_args)
             continue
 
         if choice.startswith("v"):
@@ -259,6 +280,38 @@ def _select_css_parameters_interactively(cli_args: argparse.Namespace) -> None:
             cli_args.agg = agg
             break
         print("  Invalid aggregation. Choose sum, min, leximax, or leximin.")
+
+def _select_cosar_parameters_interactively(cli_args: argparse.Namespace) -> None:
+    """
+        Prompt the user to configure COSAR aggregation parameters.
+    """
+    print("\nConfigure COSAR aggregation:")
+
+    while True:
+        method = input(
+            f"  Aggregation base/neutral-aware/na/bayesian [{cli_args.aggregation_method}]: "
+        ).strip().lower()
+        if not method:
+            break
+        if method in {"base", "neutral-aware", "na", "bayesian"}:
+            cli_args.aggregation_method = method
+            break
+        print("  Invalid aggregation. Choose base, neutral-aware, na, or bayesian.")
+
+    while cli_args.aggregation_method == "bayesian":
+        neutral_weight = input(f"  Neutral vote weight [0..1] [{cli_args.neutral_weight}]: ").strip()
+        if not neutral_weight:
+            break
+        try:
+            value = float(neutral_weight)
+        except ValueError:
+            print("  Invalid value. Enter a number between 0 and 1.")
+            continue
+        if not (0.0 <= value <= 1.0):
+            print("  Invalid value. Enter a number between 0 and 1.")
+            continue
+        cli_args.neutral_weight = value
+        break
 
 def _parse_custom_args(raw_args: str) -> list[str]:
     parsed = ast.literal_eval(raw_args)
@@ -347,6 +400,18 @@ def _build_parser() -> argparse.ArgumentParser:
         "--semantics",
         default="PR",
         help="Semantics for CSS extension enumeration (PR, ST, CO, etc.).",
+    )
+    parser.add_argument(
+        "--aggregation-method",
+        default="base",
+        choices=["base", "neutral-aware", "na", "bayesian"],
+        help="COSAR aggregation method: base (default), neutral-aware/na, or bayesian.",
+    )
+    parser.add_argument(
+        "--neutral-weight",
+        type=float,
+        default=0.5,
+        help="Neutral vote weight for COSAR bayesian aggregation (default: 0.5).",
     )
     parser.add_argument(
         "--measure",
