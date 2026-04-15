@@ -71,7 +71,6 @@ def main():
             votes,
             cli_args.semantics,
             aggregation_method=cli_args.aggregation_method,
-            neutral_weight=cli_args.neutral_weight,
         )
 
         print("\nResulting argumentation system:")
@@ -161,7 +160,7 @@ def _select_file_interactively(files: list[Path], cli_args: argparse.Namespace) 
         print(f"  s          Set semantics (current: {cli_args.semantics})")
         if cli_args.algorithm == "cosar":
             print("  m          Configure COSAR aggregation")
-            print(f"             (aggregation={cli_args.aggregation_method}, neutral_weight={cli_args.neutral_weight})")
+            print(f"             (aggregation={cli_args.aggregation_method})")
         if cli_args.algorithm == "css":
             print("  p          Configure CSS parameters")
             print(f"             (measure={cli_args.measure}, agg={cli_args.agg})")
@@ -298,21 +297,6 @@ def _select_cosar_parameters_interactively(cli_args: argparse.Namespace) -> None
             break
         print("  Invalid aggregation. Choose base, neutral-aware, na, or bayesian.")
 
-    while cli_args.aggregation_method == "bayesian":
-        neutral_weight = input(f"  Neutral vote weight [0..1] [{cli_args.neutral_weight}]: ").strip()
-        if not neutral_weight:
-            break
-        try:
-            value = float(neutral_weight)
-        except ValueError:
-            print("  Invalid value. Enter a number between 0 and 1.")
-            continue
-        if not (0.0 <= value <= 1.0):
-            print("  Invalid value. Enter a number between 0 and 1.")
-            continue
-        cli_args.neutral_weight = value
-        break
-
 def _parse_custom_args(raw_args: str) -> list[str]:
     parsed = ast.literal_eval(raw_args)
     if not isinstance(parsed, list) or not all(isinstance(item, str) for item in parsed):
@@ -407,12 +391,7 @@ def _build_parser() -> argparse.ArgumentParser:
         choices=["base", "neutral-aware", "na", "bayesian"],
         help="COSAR aggregation method: base (default), neutral-aware/na, or bayesian.",
     )
-    parser.add_argument(
-        "--neutral-weight",
-        type=float,
-        default=0.5,
-        help="Neutral vote weight for COSAR bayesian aggregation (default: 0.5).",
-    )
+
     parser.add_argument(
         "--measure",
         default="U",

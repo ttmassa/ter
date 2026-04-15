@@ -38,6 +38,7 @@ The COSAR implementation (`src/cosar.py`) currently provides two aggregation mod
 - `neutral-aware` (alias: `na`)
 
 The CLI currently runs COSAR with the default `base` mode.
+When the `bayesian` method is selected, neutral votes are treated as half a vote in favor (weight fixed at 0.5).
 
 The COSAR algorithm used here is based on Section 4.3 in `Collective Satisfaction Semantics for Opinion Based Argumentation.pdf`.  
 The base aggregation definition is given in Definition 23 of `Collective Satisfaction Semantics for Opinion Based Argumentation.pdf`.  

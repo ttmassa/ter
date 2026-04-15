@@ -64,14 +64,16 @@ def compute_neutral_aware_score(aggregate_votes: dict[str, list[int]], theta_low
         scores[arg] = round((1 - nic) * base_score + nic * 0.5, 3)
     return scores
 
-def compute_bayesian_score(aggregate_votes: dict[str, list[int]], epsilon: float = 0.1, neutral_weight: float = 0.5) -> dict[str, float]:
+def compute_bayesian_score(aggregate_votes: dict[str, list[int]], epsilon: float = 0.1) -> dict[str, float]:
     """
         Compute the neutral-aware score of each argument using the Bayesian approach.
+        The neutral vote weight is fixed at 0.5.
     """
+    NEUTRAL_WEIGHT = 0.5
     scores = {}
     for arg, votes in aggregate_votes.items():
         v_minus, v_zero, v_plus = votes
-        numerateur = v_plus + (v_zero * neutral_weight)
+        numerateur = v_plus + (v_zero * NEUTRAL_WEIGHT)
         denominateur = v_plus + v_minus + v_zero + epsilon
         scores[arg] = round(numerateur / denominateur, 3)
     return scores
@@ -87,7 +89,7 @@ def prune_attacks(atts: list[list[str]], scores: dict[str, float]) -> list[list[
     return pruned_atts
 
         
-def run(args, atts, votes, semantics, aggregation_method="base", neutral_weight=0.5):
+def run(args, atts, votes, semantics, aggregation_method="base"):
     """
         Run the COSAR algorithm on the given argumentation system.
     """
@@ -96,7 +98,7 @@ def run(args, atts, votes, semantics, aggregation_method="base", neutral_weight=
     if aggregation_method == "neutral-aware" or aggregation_method == "na":
         scores = compute_neutral_aware_score(aggregate)
     elif aggregation_method == "bayesian":
-        scores = compute_bayesian_score(aggregate, neutral_weight=neutral_weight)
+        scores = compute_bayesian_score(aggregate)
     else:
         scores = compute_scores(aggregate)
         

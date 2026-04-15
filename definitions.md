@@ -89,13 +89,31 @@ This replaces the traditional conflict-free property, allowing arguments to be a
 
 ## Bayesian score ($\tau_{\epsilon}^B$)
 
-Let $O = <<Ar, att>, V_{Ar}>$ be an $OBAF$ and $x \in Ar$. $\tau_{\epsilon}^B$ is an opinion aggregation function that computes the strength of an argument using a Bayesian approach, treating neutral votes with a specific weight. It is defined as follows:
+Let $O = <<Ar, att>, V_{Ar}>$ be an $OBAF$ and $x \in Ar$. $\tau_{\epsilon}^B$ is an opinion aggregation function that computes the strength of an argument using a Bayesian approach, where neutral votes are treated as **half a vote in favor** of the argument.
 
-Let $neutral\_weight \in [0, 1]$ be the designated weight assigned to neutral opinions (e.g., $0.5$ for an exactly intermediate opinion).
+### Interpretation of the neutral vote
+
+In the context of opinion-based argumentation, a voter can express three types of opinions on an argument $x$:
+
+- **In favor** ($v^+(x)$): the voter explicitly supports the argument. This contributes a weight of $1$ in favor.
+- **Against** ($v^-(x)$): the voter explicitly opposes the argument. This contributes a weight of $0$ in favor (i.e., it only appears in the denominator).
+- **Neutral** ($v^0(x)$): the voter **does not have a clear opinion** — they are undecided, lack sufficient information, or are indifferent. This is **not** a vote both for and against; rather, it reflects **uncertainty or abstention**. Since the voter neither supports nor opposes the argument, the neutral vote is treated as contributing **half the weight of a positive vote** (i.e., $0.5$). This reflects the idea that a neutral voter is **exactly midway between supporting and opposing** — they are not fully convinced, but they are not against either.
+
+### Formula
+
+The neutral vote weight is fixed at $0.5$. The Bayesian score is defined as:
 
 $$
-\tau_{\epsilon}^B(x) = \frac{|v^+(x)| + neutral\_weight \cdot |v^0(x)|}{|v^+(x)| + |v^-(x)| + |v^0(x)| + \epsilon}
+\tau_{\epsilon}^B(x) = \frac{|v^+(x)| + 0.5 \cdot |v^0(x)|}{|v^+(x)| + |v^-(x)| + |v^0(x)| + \epsilon}
 $$
+
+**Example:** Consider an argument $x$ with 2 votes in favor, 1 vote against, and 4 neutral votes ($\epsilon = 0.1$):
+
+$$
+\tau_{\epsilon}^B(x) = \frac{2 + 0.5 \times 4}{2 + 1 + 4 + 0.1} = \frac{4}{7.1} \approx 0.563
+$$
+
+The 4 neutral voters contribute as if 2 of them voted in favor, reflecting their intermediate position between support and opposition.
 
 Once we have obtained $\tau_{\epsilon}^B$ for all arguments in $Ar$, we can use it to prune the OBAF by removing all attacks from an argument $x$ on another argument $y$ if $\tau_{\epsilon}^B(x) < \tau_{\epsilon}^B(y)$.
 
@@ -163,12 +181,137 @@ No voters express any opinion (all votes are neutral or absent). This tests how 
 
 ---
 
+### Differentiating Examples — Where All 3 Pruning-Based Approaches Disagree
+
+The following examples use a simple 3-argument cycle: $a \to b$, $b \to c$, $c \to a$ with Preferred (PR) semantics and $\epsilon = 0.1$. They demonstrate cases where **Base, Neutral-Aware, and Bayesian each produce a different extension**, proving that the three methods are truly distinct.
+
+#### Example 1
+
+| Arg | $v^-$ | $v^0$ | $v^+$ | Total |
+|-----|:-----:|:-----:|:-----:|:-----:|
+| a   | 0     | 1     | 1     | 2     |
+| b   | 0     | 3     | 2     | 5     |
+| c   | 1     | 1     | 3     | 5     |
+
+| Arg | Base  | Neutral-Aware | Bayesian |
+|-----|-------|---------------|----------|
+| a   | 0.909 | 0.705         | 0.714    |
+| b   | 0.952 | 0.681         | 0.686    |
+| c   | 0.732 | 0.709         | 0.686    |
+
+| Approach | Extension | Explanation |
+|----------|-----------|-------------|
+| **Base** | $\{a, b\}$ | $b$ dominates (0.952) because its 3 neutral votes are invisible. Attack $a \to b$ is removed ($a < b$), so $a$ and $b$ coexist. |
+| **Neutral-Aware** | $\{b, c\}$ | $b$ drops to 0.681 (neutral proportion penalizes it). $c$ becomes the strongest (0.709). Attack $b \to c$ is removed ($b < c$), so $b$ and $c$ coexist. |
+| **Bayesian** | $\{a, c\}$ | $a$ leads (0.714). $b$ and $c$ are tied (0.686). Attack $c \to a$ is removed ($c < a$), so $a$ and $c$ coexist. |
+
+**Why the three methods disagree here:**
+- **Base** overestimates $b$ by ignoring its 3 neutral votes entirely ($2/2.1 \approx 0.952$).
+- **Neutral-Aware** strongly corrects $b$ because the high neutral proportion ($3/5 = 60\%$) combined with a clear majority among decided votes ($DPI = 1$) creates a strong pull toward 0.5.
+- **Bayesian** treats neutral votes more moderately: it adds $0.5 \times v^0$ to the numerator, which gives $b$ a score of $(2 + 1.5) / 5.1 = 0.686$. For $a$, the single neutral vote gives $(1 + 0.5) / 2.1 = 0.714$, making $a$ the strongest.
+
+#### Example 2 — Bayesian ≠ WCT
+
+This example shows how the Bayesian pruning approach and WCT can disagree. Same 3-argument cycle: $a \to b$, $b \to c$, $c \to a$.
+
+| Arg | $v^-$ | $v^0$ | $v^+$ | Total |
+|-----|:-----:|:-----:|:-----:|:-----:|
+| a   | 0     | 1     | 1     | 2     |
+| b   | 0     | 1     | 1     | 2     |
+| c   | 0     | 1     | 3     | 4     |
+
+**Bayesian scores** (pruning-based):
+
+| Arg | Bayesian Score |
+|-----|---------------|
+| a   | 0.714          |
+| b   | 0.714          |
+| c   | 0.854          |
+
+Bayesian ranking: $c > a = b$. Attack $a \to b$ is kept ($a \geq b$), attack $b \to c$ is removed ($b < c$), attack $c \to a$ is kept ($c > a$). Pruned framework: $a \to b$, $c \to a$ → Extension: $\{b, c\}$.
+
+**WCT scores** (tolerance-based):
+
+| Arg | Force ($\tau^N$) | Stability | 
+|-----|:-----:|:---------:|
+| a   | 0.750 | 0.500     |
+| b   | 0.750 | 0.500     |
+| c   | 0.875 | 0.250     |
+
+Attack weights: $W(a \to b) = 0.250$, $W(b \to c) = 0.500$, $W(c \to a) = 0.375$. With $K = 0.250$ (endogenous natural-break), WCT tolerates the internal attack $a \to b$ within $\{a, b\}$ because its cost (0.250) ≤ $K$ → Extension: $\{a, b\}$.
+
+| Approach | Extension | Reason |
+|----------|-----------|--------|
+| **Bayesian** | $\{b, c\}$ | $b \to c$ is pruned because $b < c$, so $b$ and $c$ can coexist. |
+| **WCT** | $\{a, b\}$ | The $a \to b$ conflict has low cost (0.250 ≤ $K$), so it is tolerated. |
+
+**Key difference:** Bayesian removes weak attacks entirely (pruning), while WCT keeps all attacks but tolerates low-cost conflicts. Here, WCT accepts $\{a, b\}$ despite the $a \to b$ attack because its cost is within the tolerance threshold.
+
+#### Example 3 — Neutral-Aware ≠ WCT
+
+| Arg | $v^-$ | $v^0$ | $v^+$ | Total |
+|-----|:-----:|:-----:|:-----:|:-----:|
+| a   | 0     | 1     | 1     | 2     |
+| b   | 0     | 1     | 1     | 2     |
+| c   | 0     | 1     | 2     | 3     |
+
+**Neutral-Aware scores** (pruning-based):
+
+| Arg | NA Score |
+|-----|----------|
+| a   | 0.705    |
+| b   | 0.705    |
+| c   | 0.801    |
+
+NA ranking: $c > a = b$. Attack $b \to c$ is removed ($b < c$). Pruned framework: $a \to b$, $c \to a$ → Extension: $\{b, c\}$.
+
+**WCT scores** (tolerance-based):
+
+| Arg | Force ($\tau^N$) | Stability |
+|-----|:-----:|:---------:|
+| a   | 0.750 | 0.500     |
+| b   | 0.750 | 0.500     |
+| c   | 0.833 | 0.333     |
+
+Attack weights: $W(a \to b) = 0.250$, $W(b \to c) = 0.417$, $W(c \to a) = 0.333$. With $K = 0.333$ (endogenous median-fallback), WCT tolerates the $a \to b$ conflict (cost 0.250 ≤ $K$) → Extension: $\{a, b\}$.
+
+| Approach | Extension | Reason |
+|----------|-----------|--------|
+| **Neutral-Aware** | $\{b, c\}$ | $b \to c$ is pruned because $b < c$, freeing $b$ and $c$ to coexist. |
+| **WCT** | $\{a, b\}$ | The $a \to b$ conflict is tolerated (cost ≤ $K$), allowing both to be accepted. |
+
+**Key difference:** The Neutral-Aware method and WCT use fundamentally different mechanisms. NA adjusts scores and then prunes attacks, which here removes $b \to c$. WCT instead computes a tolerance threshold and allows arguments to coexist even if they attack each other, as long as the total cost stays low.
+
+---
+
 ### General Observations
 
-1. **Base COSAR** tends to produce extreme scores because it ignores neutral votes entirely, leading to overconfident rankings.
-2. **Neutral-Aware and Bayesian** consistently correct this bias by incorporating neutral votes, producing more realistic rankings. They agree on extensions in all tested cases.
-3. **WCT** behaves differently from the other three: it is the only method that can produce extensions when no votes exist (total indecision), and it tends to accept larger coalitions by tolerating residual conflicts.
-4. The choice of method depends on the application:
-   - Use **Base** only when neutral votes are absent or irrelevant.
-   - Use **NA/Bayesian** when neutral votes carry informational weight (e.g., "I don't know" is meaningful).
-   - Use **WCT** when maximizing the number of accepted arguments is desirable, even at the cost of tolerating minor conflicts.
+#### How each approach handles neutral votes
+
+| Approach | Neutral votes | Mechanism |
+|----------|---------------|-----------|
+| **Base** | Completely ignored | Only $v^+$ and $v^-$ are used. Neutral voters are invisible. |
+| **Neutral-Aware** | Influence depends on context | The more neutral voters there are **and** the more unanimous the decided voters are, the stronger the pull toward 0.5 (via the NIC coefficient). |
+| **Bayesian** | Fixed weight of 0.5 each | Each neutral vote always counts as half a positive vote in the numerator, regardless of context. |
+| **WCT** | Fixed weight of 0.5 each + stability | Neutral votes contribute to both the force (like Bayesian) **and** the stability of an argument. High stability makes an argument harder to attack. |
+
+#### When to use each approach
+
+1. **Base COSAR** — Use when **all voters have a clear opinion** (no neutral votes), or when neutral votes should be deliberately excluded. It produces the most extreme scores and is the simplest method. However, it can be misleading when many voters are neutral, because it treats an argument with 2 votes in favor out of 2 decided voters the same as one with 2 in favor out of 100 voters (98 neutral).
+
+2. **Neutral-Aware** — Use when **the proportion of neutral votes matters more than their absolute count**. This method is best suited for scenarios where a high consensus among few decided voters should be tempered by a large undecided majority. For example, if 2 out of 10 voters support an argument and 8 are neutral, the NA method will strongly reduce the score because the apparent consensus is based on very few decided voters. The correction is context-sensitive: it depends on both the neutral proportion and the polarization of decided votes (DPI).
+
+3. **Bayesian** — Use when **each neutral vote should have a uniform, predictable impact** regardless of the voting context. Every neutral vote always contributes exactly 0.5 to the numerator. This is simpler and more transparent than NA: you can easily predict how adding or removing a neutral voter will change the score. It is well-suited when a neutral voter represents someone who is **undecided but not uninformed** — their uncertainty deserves a fixed, moderate contribution.
+
+4. **WCT (Weighted Conflict Tolerance)** — Use when **you want to maximize the number of accepted arguments**, even if some of them attack each other. Unlike the three pruning-based methods (which remove attacks and then compute extensions on the simplified graph), WCT keeps all attacks but assigns them a cost and allows arguments to coexist as long as the total cost of their internal conflicts stays below a tolerance threshold $K$. This makes WCT the only method that can produce extensions when **no votes exist at all** (total indecision), and it tends to produce **larger extensions** than the other methods.
+
+#### Summary table
+
+| Scenario | Recommended approach |
+|----------|---------------------|
+| No neutral votes | **Base** (simplest, no bias) |
+| Many neutral voters, few decided voters | **Neutral-Aware** (context-sensitive correction) |
+| Neutral voters should each count equally | **Bayesian** (fixed 0.5 weight, predictable) |
+| Maximize accepted arguments, tolerate conflicts | **WCT** (tolerance-based, no pruning) |
+| No information at all (nobody votes) | **WCT** (only method that produces extensions) |
+| Need strict conflict-free extensions | **Base / NA / Bayesian** (pruning guarantees no internal attacks) |
