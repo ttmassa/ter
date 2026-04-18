@@ -16,7 +16,7 @@ N(x) =
 \end{cases}
 $$
 
-Next, we define the Dividing-Power Index ($DPI$) to measure the polarization of non-neutral votes:
+Next, we define the Dividing-Power Index ($DPI \in [0 ; 1]$) to measure the polarization of non-neutral votes. This index captures how much the decided voters (those who voted for or against) are in agreement or disgreement. The higher the $DPI$, the more polarized the decided votes are:
 
 $$
 DPI(x) =
@@ -26,13 +26,13 @@ DPI(x) =
 \end{cases}
 $$
 
-The Neutral Influence Coefficient ($NIC$) then combines the neutral proportion with the DPI to quantify the influence of neutral opinions:
+The Neutral Influence Coefficient ($NIC$) then combines the neutral proportion with the DPI to quantify the influence of neutral opinions. The intuition is that neutral votes should have a stronger influence when there is a high proportion of neutral voters **and** when the decided voters are highly polarized (i.e., they mostly agree with each other). Conversely, if the decided voters are evenly split, the neutral votes should have less influence because they do not indicate a clear consensus. The $NIC$ is defined as:
 
 $$
 NIC(x) = N(x) * DPI(x)
 $$
 
-Finally, the neutral-aware score is computed as:
+Finally, the neutral-aware score is computed as a weighted average between the base score $\tau_{\epsilon}(x)$ and a neutral baseline of $0.5$, where the weight is determined by the $NIC$. The formula is defined as:
 
 $$\tau_{\epsilon}^N(x) = (1 - NIC(x)) * \tau_{\epsilon}(x) + NIC(x) * 0.5$$
 
