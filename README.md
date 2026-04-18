@@ -138,6 +138,7 @@ python src/cli.py \
 Input files use lines such as:
 
 ```text
+agt(A, B).
 arg(a).
 arg(b).
 att(a, b).
@@ -146,7 +147,8 @@ vot(B, b, -1).
 ```
 
 APX vote values accepted by the project format are `-1`, `1`.
-Neutral votes don't need to be included in the input files as they are equivalent to no vote. The parser will automatically handle missing votes and treat them as neutral.
+The `agt(...)` line is mandatory and must list all voting agents in the file.
+Neutral votes don't need to be included in the input files as they are equivalent to no vote. The parser will automatically handle missing votes and treat them as neutral, including agents that only have neutral votes.
 
 ## Outputs
 

@@ -8,7 +8,8 @@ def read_apx(file_path: str):
 
     arguments = []
     attacks = []
-    votes = {}
+    agents = None
+    vote_entries = []
     with open(file_path, 'r') as f:
         line_counter = 0
         for line in f:
@@ -24,22 +25,37 @@ def read_apx(file_path: str):
             elif line.startswith('att'):
                 att = _parse_att(line, file_path, line_counter)
                 attacks.append(att)
+            elif line.startswith('agt'):
+                # Check for duplicate agent declaration lines
+                if agents is not None:
+                    raise ValueError(f"Duplicate agent declaration line, line {line_counter}, in {file_path}.")
+                agents = _parse_agt(line, file_path, line_counter)
             elif line.startswith('vot'):
                 vote = _parse_vote(line, file_path, line_counter)
-                # Merge vote into votes dict, updating nested dict for agent
-                for agent, arguments_dict in vote.items():
-                    if agent not in votes:
-                        votes[agent] = {}
-                    for argument, vote_value in arguments_dict.items():
-                        # Check for votes on non-existent arguments
-                        if argument not in arguments:
-                            raise ValueError(f"Vote for non-existent argument: {argument}, line {line_counter}, in {file_path}.")
-                        # Check for duplicate votes (same agent voting on the same argument twice)
-                        if argument in votes[agent]:
-                            raise ValueError(f"Duplicate vote from agent '{agent}' for argument '{argument}', line {line_counter}, in {file_path}.")
-                        votes[agent][argument] = vote_value
+                vote_entries.append((line_counter, vote))
             else:
-                raise ValueError(f"Invalid line format: {line}. Expected lines to start with 'arg', 'att', or 'vot', line {line_counter}, in {file_path}.")
+                raise ValueError(f"Invalid line format: {line}. Expected lines to start with 'arg', 'att', 'agt', or 'vot', line {line_counter}, in {file_path}.")
+
+    # Check for mandatory agent declaration line
+    if agents is None:
+        raise ValueError(f"Missing mandatory line 'agt(A, B, ...)' listing all voting agents, in {file_path}.")
+
+    # Initialize votes dict with all agents and empty vote dicts
+    votes = {agent: {} for agent in agents}
+    for vote_line_number, vote in vote_entries:
+        for agent, arguments_dict in vote.items():
+            # Check for votes from undeclared agents
+            if agent not in votes:
+                raise ValueError(f"Vote for undeclared agent: {agent}, line {vote_line_number}, in {file_path}.")
+            
+            for argument, vote_value in arguments_dict.items():
+                # Check for votes on non-existent arguments
+                if argument not in arguments:
+                    raise ValueError(f"Vote for non-existent argument: {argument}, line {vote_line_number}, in {file_path}.")
+                # Check for duplicate votes (same agent voting on the same argument twice)
+                if argument in votes[agent]:
+                    raise ValueError(f"Duplicate vote from agent '{agent}' for argument '{argument}', line {vote_line_number}, in {file_path}.")
+                votes[agent][argument] = vote_value
             
     # Add neutral votes for any arguments that were not voted on by an agent
     for agent in votes:
@@ -58,6 +74,7 @@ def write_apx(file_path: str, args: list[str], atts: list[list[str]], votes: dic
         raise ValueError(f"File extension must be .apx, got: {file_path}")
 
     with open(file_path, 'w') as f:
+        f.write(f"agt({', '.join(votes.keys())}).\n")
         for arg in args:
             f.write(f"arg({arg}).\n")
         for att in atts:
@@ -77,6 +94,7 @@ def display_parsed_content(args: list[str], atts: list[list[str]], votes: dict[s
     formatted_atts = "[" + ", ".join(
         f'[\'{attacker}\', \'{target}\']' for attacker, target in atts
     ) + "]"
+    formatted_agts = "[" + ", ".join(f'\'{agent}\'' for agent in votes.keys()) + "]"
     # Format votes in nested structure: {agent: {argument: vote, ...}, ...}
     agent_votes_list = []
     for agent in sorted(votes.keys()):
@@ -88,6 +106,7 @@ def display_parsed_content(args: list[str], atts: list[list[str]], votes: dict[s
 
     print(f"Arguments: {formatted_args}")
     print(f"Attacks: {formatted_atts}")
+    print(f"Agents: {formatted_agts}")
     print(f"Votes: {formatted_votes}")
 
 def _parse_arg(line: str, file_path: str, line_number: int) -> str:
@@ -110,6 +129,18 @@ def _parse_att(line: str, file_path: str, line_number: int) -> list[str]:
     parts = [p.strip() for p in content.split(',')]
     if len(parts) != 2:
         raise ValueError(f"Invalid line format: {line}. Expected format: 'att(attacker, target)', line {line_number}, in {file_path}.")
+    return parts
+
+def _parse_agt(line: str, file_path: str, line_number: int) -> list[str]:
+    """
+        Parse the voting agents from the given line and return them as a list of strings.
+    """
+    content = line[line.find('(') + 1:line.rfind(')')]
+    parts = [p.strip() for p in content.split(',')]
+    if not parts or any(not part for part in parts):
+        raise ValueError(f"Invalid line format: {line}. Expected format: 'agt(agent1, agent2, ...)', line {line_number}, in {file_path}.")
+    if len(set(parts)) != len(parts):
+        raise ValueError(f"Duplicate agent names in declaration line, line {line_number}, in {file_path}.")
     return parts
 
 def _parse_vote(line: str, file_path: str, line_number: int) -> dict[str, dict[str, int]]:
