@@ -1,4 +1,6 @@
-def read_apx(file_path: str):
+from OBAF import OBAF
+
+def read_apx(file_path: str) -> OBAF:
     """
         Parse the arguments, attacks, and votes from the given file.
     """
@@ -63,9 +65,9 @@ def read_apx(file_path: str):
             if argument not in votes[agent]:
                 votes[agent][argument] = 0
     
-    return arguments, attacks, votes
+    return OBAF(arguments, attacks, agents, votes)
 
-def write_apx(file_path: str, args: list[str], atts: list[list[str]], votes: dict[str, dict[str, int]]) -> None:
+def write_apx(file_path: str, obaf: OBAF) -> None:
     """
         Write the arguments, attacks, and votes to the given file in the APX format.
     """
@@ -74,40 +76,17 @@ def write_apx(file_path: str, args: list[str], atts: list[list[str]], votes: dic
         raise ValueError(f"File extension must be .apx, got: {file_path}")
 
     with open(file_path, 'w') as f:
-        f.write(f"agt({', '.join(votes.keys())}).\n")
-        for arg in args:
+        f.write(f"agt({', '.join(obaf.agents)}).\n")
+        for arg in obaf.args:
             f.write(f"arg({arg}).\n")
-        for att in atts:
+        for att in obaf.atts:
             f.write(f"att({att[0]}, {att[1]}).\n")
-        for agent, arguments_dict in votes.items():
+        for agent, arguments_dict in obaf.votes.items():
             for argument, vote in arguments_dict.items():
                 # Skip neutral votes since they are equivalent to missing votes
                 if vote == 0:
                     continue
                 f.write(f"vot({agent}, {argument}, {vote}).\n")
-
-def display_parsed_content(args: list[str], atts: list[list[str]], votes: dict[str, dict[str, int]]) -> None:
-    """
-        Display the parsed arguments, attacks, and votes in a readable format.
-    """
-    formatted_args = "[" + ", ".join(f'\'{arg}\'' for arg in args) + "]"
-    formatted_atts = "[" + ", ".join(
-        f'[\'{attacker}\', \'{target}\']' for attacker, target in atts
-    ) + "]"
-    formatted_agts = "[" + ", ".join(f'\'{agent}\'' for agent in votes.keys()) + "]"
-    # Format votes in nested structure: {agent: {argument: vote, ...}, ...}
-    agent_votes_list = []
-    for agent in sorted(votes.keys()):
-        arg_votes = ", ".join(
-            f"{arg}: {votes[agent][arg]}" for arg in sorted(votes[agent].keys())
-        )
-        agent_votes_list.append(f"{agent}: {{{arg_votes}}}")
-    formatted_votes = "{" + ", ".join(agent_votes_list) + "}"
-
-    print(f"Arguments: {formatted_args}")
-    print(f"Attacks: {formatted_atts}")
-    print(f"Agents: {formatted_agts}")
-    print(f"Votes: {formatted_votes}")
 
 def _parse_arg(line: str, file_path: str, line_number: int) -> str:
     """

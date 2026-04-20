@@ -2,7 +2,7 @@ import argparse
 import ast
 from cosar import run as run_cosar
 from css import run as run_css
-from parser import display_parsed_content, read_apx, write_apx
+from parser import read_apx, write_apx
 from pathlib import Path
 from pygarg.dung import solver
 
@@ -49,32 +49,30 @@ def main():
             selected_file = _select_file_interactively(files, cli_args)
 
         # Parse the selected file
-        args, atts, votes = read_apx(str(selected_file))
+        obaf = read_apx(str(selected_file))
         # Use the file name without extension as the source name for output
         source_name = selected_file.name
 
     # Display parsed input if requested
     if cli_args.show_input:
         print("\nInput argumentation system:")
-        display_parsed_content(args, atts, votes)
+        obaf.__str__()
 
     # Display initial extensions before running the selected algorithm
     print(f"\nComputing extensions with semantics '{cli_args.semantics}' before running {cli_args.algorithm.upper()}...")
-    initial_extensions = solver.extension_enumeration(args, atts, cli_args.semantics)
+    initial_extensions = solver.extension_enumeration(obaf.args, obaf.atts, cli_args.semantics)
     _print_extensions("Initial extension(s) for selected semantics", initial_extensions)
 
     if cli_args.algorithm == "cosar":
         # Run COSAR
-        extensions, pruned_atts = run_cosar(
-            args,
-            atts,
-            votes,
+        extensions, pruned_obaf = run_cosar(
+            obaf,
             cli_args.semantics,
             aggregation_method=cli_args.aggregation_method,
         )
 
         print("\nResulting argumentation system:")
-        display_parsed_content(args, pruned_atts, votes)
+        obaf.__str__()
 
         if cli_args.no_write:
             print("\nResult file creation skipped (--no-write).")
@@ -87,7 +85,7 @@ def main():
         results_dir.mkdir(exist_ok=True)
         output_name = f"{source_name}_result.apx"
         output_path = (results_dir / output_name).resolve()
-        write_apx(str(output_path), args, pruned_atts, votes)
+        write_apx(str(output_path), pruned_obaf)
         print(f"\nResult file available in data/results: {output_path}")
         return
     elif cli_args.algorithm == "css":
@@ -208,9 +206,9 @@ def _select_file_interactively(files: list[Path], cli_args: argparse.Namespace) 
                 continue
 
             selected = files[index - 1]
-            file_args, file_atts, file_votes = read_apx(str(selected))
+            file_obaf = read_apx(str(selected))
             print(f"\nParsed content of {selected.name}:")
-            display_parsed_content(file_args, file_atts, file_votes)
+            file_obaf.__str__()
             continue
 
         if not choice.isdigit():
@@ -295,7 +293,7 @@ def _select_cosar_parameters_interactively(cli_args: argparse.Namespace) -> None
         if method in {"base", "neutral-aware", "wct", "bayesian"}:
             cli_args.aggregation_method = method
             break
-        print("  Invalid aggregation. Choose base, neutral-aware, na, or bayesian.")
+        print("  Invalid aggregation. Choose base, neutral-aware, or bayesian.")
 
 def _parse_custom_args(raw_args: str) -> list[str]:
     parsed = ast.literal_eval(raw_args)

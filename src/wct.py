@@ -1,12 +1,12 @@
 import argparse
+from OBAF import OBAF
 from pathlib import Path
 from statistics import median
-from parser import read_apx, display_parsed_content
-from cosar import aggregate_votes
+from parser import read_apx
 from pygarg.dung import solver
 
 
-def compute_force(agg):
+def compute_force(agg: dict[str, list[int]]):
     """
         Compute the force of each argument using the formula given in wct.md.
     """
@@ -17,7 +17,7 @@ def compute_force(agg):
     return result
 
 
-def compute_stability(agg):
+def compute_stability(agg: dict[str, list[int]]):
     """
         Compute the stability of each argument using the formula given in wct.md.
     """
@@ -42,12 +42,12 @@ def compute_cost(ext, weights):
     return sum(w for (x, y), w in weights.items() if x in ext and y in ext)
 
 
-def run(args, atts, votes, semantics, k=None):
+def run(obaf: OBAF, semantics, k=None):
     # Aggregate votes and compute force, stability, and attack weights
-    agg = aggregate_votes(args, votes)
+    agg = obaf.aggregate_votes()
     tau = compute_force(agg)
     stab = compute_stability(agg)
-    weights = compute_attack_weights(atts, tau, stab)
+    weights = compute_attack_weights(obaf.atts, tau, stab)
 
     # Determine the tolerance threshold K (endogenous or manual)
     if k is None:
@@ -55,13 +55,13 @@ def run(args, atts, votes, semantics, k=None):
     else:
         k_method = "manual"
 
-    pruned_zero = [[x, y] for x, y in atts if weights[(x, y)] > 0]
-    pruned_k = [[x, y] for x, y in atts if weights[(x, y)] > k]
+    pruned_zero = [[x, y] for x, y in obaf.atts if weights[(x, y)] > 0]
+    pruned_k = [[x, y] for x, y in obaf.atts if weights[(x, y)] > k]
 
     # Collect candidate extensions
     candidates = set()
-    for graph in [atts, pruned_zero, pruned_k]:
-        for ext in solver.extension_enumeration(args, graph, semantics):
+    for graph in [obaf.atts, pruned_zero, pruned_k]:
+        for ext in solver.extension_enumeration(obaf.args, graph, semantics):
             candidates.add(frozenset(ext))
 
     # Filter valid extensions based on cost and keep only maximal ones
@@ -70,47 +70,6 @@ def run(args, atts, votes, semantics, k=None):
     solutions = [sorted(e) for e in maximal]
 
     return solutions, agg, tau, stab, weights, k, k_method
-
-
-def main():
-    ap = argparse.ArgumentParser(description="WCT solver for OBAF")
-    ap.add_argument("file", help=".apx file (path or name in data/)")
-    ap.add_argument("-k", type=float, default=None, help="Manual tolerance threshold K (omit for endogenous)")
-    ap.add_argument("--semantics", default="PR", help="Base semantics for pygarg (default: PR)")
-    ap.add_argument("-v", "--verbose", action="store_true")
-    ap.add_argument("--show-input", action="store_true")
-    cli = ap.parse_args()
-
-    repo_root = Path(__file__).resolve().parent.parent
-    data_dir = repo_root / "data"
-    candidate = Path(cli.file)
-    if not candidate.is_absolute():
-        in_data = data_dir / cli.file
-        candidate = in_data if in_data.exists() else candidate
-
-    args, atts, votes = read_apx(str(candidate.resolve()))
-
-    if cli.show_input:
-        display_parsed_content(args, atts, votes)
-
-    maximal, agg, tau, stab, weights, k, k_method = run(args, atts, votes, cli.semantics, cli.k)
-
-    if cli.verbose:
-        print("\nForce / Stability:")
-        for a in args:
-            print(f"  {a}:  tau={tau[a]:.4f}  stab={stab[a]:.4f}")
-        print("\nAttack weights:")
-        for (x, y), w in weights.items():
-            label = "absorbed" if w == 0 else ("tolerable" if w <= k else "kept")
-            print(f"  W({x} -> {y}) = {w:.4f}  [{label}]")
-
-    print(f"\nK = {k:.4f}  [{k_method}]  |  Semantics = {cli.semantics}")
-    print("WCT extensions:")
-    if not maximal:
-        print("  (none)")
-    for e in maximal:
-        c = compute_cost(e, weights)
-        print(f"  {{{', '.join(sorted(e))}}}  (cost={c:.4f})")
 
 
 # ---------------------------------------------------------------------------
@@ -141,6 +100,47 @@ def compute_endogenous_k(weights):
         return w_act[i_star], "endogenous/natural-break"
 
     return median(w_act), "endogenous/median-fallback"
+
+
+def main():
+    ap = argparse.ArgumentParser(description="WCT solver for OBAF")
+    ap.add_argument("file", help=".apx file (path or name in data/)")
+    ap.add_argument("-k", type=float, default=None, help="Manual tolerance threshold K (omit for endogenous)")
+    ap.add_argument("--semantics", default="PR", help="Base semantics for pygarg (default: PR)")
+    ap.add_argument("-v", "--verbose", action="store_true")
+    ap.add_argument("--show-input", action="store_true")
+    cli = ap.parse_args()
+
+    repo_root = Path(__file__).resolve().parent.parent
+    data_dir = repo_root / "data"
+    candidate = Path(cli.file)
+    if not candidate.is_absolute():
+        in_data = data_dir / cli.file
+        candidate = in_data if in_data.exists() else candidate
+
+    obaf = read_apx(str(candidate.resolve()))
+
+    if cli.show_input:
+        obaf.__str__()
+
+    maximal, _, tau, stab, weights, k, k_method = run(obaf, cli.semantics, cli.k)
+
+    if cli.verbose:
+        print("\nForce / Stability:")
+        for a in obaf.args:
+            print(f"  {a}:  tau={tau[a]:.4f}  stab={stab[a]:.4f}")
+        print("\nAttack weights:")
+        for (x, y), w in weights.items():
+            label = "absorbed" if w == 0 else ("tolerable" if w <= k else "kept")
+            print(f"  W({x} -> {y}) = {w:.4f}  [{label}]")
+
+    print(f"\nK = {k:.4f}  [{k_method}]  |  Semantics = {cli.semantics}")
+    print("WCT extensions:")
+    if not maximal:
+        print("  (none)")
+    for e in maximal:
+        c = compute_cost(e, weights)
+        print(f"  {{{', '.join(sorted(e))}}}  (cost={c:.4f})")
 
 
 if __name__ == "__main__":

@@ -1,32 +1,12 @@
 from pygarg.dung import solver
+from OBAF import OBAF
 
-def aggregate_votes(args: list[str], votes: dict[str, dict[str, int]]) -> dict[str, list[int]]:
-    """
-        Compute the score of each argument based on the votes and return it in this format:
-        {
-            argument: [v_minus, v_zero, v_plus]
-        }
-    """
-    aggregate_votes = {arg: [0, 0, 0] for arg in args}
-    for _, arguments_dict in votes.items():
-        for argument, vote in arguments_dict.items():
-            if argument in aggregate_votes:
-                if vote == -1:
-                    aggregate_votes[argument][0] += 1
-                elif vote == 0:
-                    aggregate_votes[argument][1] += 1
-                elif vote == 1:
-                    aggregate_votes[argument][2] += 1
-                else:
-                    raise ValueError(f"Invalid vote value: {vote}. Expected -1, 0, or 1.")
-    print(f"Votes: {aggregate_votes}")
-    return aggregate_votes
-
-def compute_scores(aggregate_votes: dict[str, list[int]]) -> dict[str, float]:
+def compute_scores(obaf: OBAF) -> dict[str, float]:
     """
         Aggregate the score of each argument using the formula given in the paper.    
     """
     EPS = 0.1
+    aggregate_votes = obaf.aggregate_votes()
     scores = {}
     for arg, votes in aggregate_votes.items():
         v_minus, _, v_plus = votes
@@ -36,12 +16,14 @@ def compute_scores(aggregate_votes: dict[str, list[int]]) -> dict[str, float]:
             scores[arg] = round(v_plus / (v_minus + v_plus + EPS), 3)
     return scores
 
-def compute_neutral_aware_score(aggregate_votes: dict[str, list[int]], theta_low: float = 0.33, theta_high: float = 0.66) -> dict[str, float]:
+def compute_neutral_aware_score(obaf: OBAF) -> dict[str, float]:
     """
         Compute the neutral-aware score of each argument using the formula given in definitions.md. 
     """
     # Start by computing the base scores using the original formula
-    base_scores = compute_scores(aggregate_votes)
+    base_scores = compute_scores(obaf)
+    aggregate_votes = obaf.aggregate_votes()
+    print(f"Votes: {aggregate_votes}")
     scores = {}
 
     for arg, votes in aggregate_votes.items():
@@ -64,17 +46,19 @@ def compute_neutral_aware_score(aggregate_votes: dict[str, list[int]], theta_low
         scores[arg] = round((1 - nic) * base_score + nic * 0.5, 3)
     return scores
 
-def compute_bayesian_score(aggregate_votes: dict[str, list[int]], epsilon: float = 0.1) -> dict[str, float]:
+def compute_bayesian_score(obaf: OBAF) -> dict[str, float]:
     """
         Compute the neutral-aware score of each argument using the Bayesian approach defined in definitions.md.
         The neutral vote weight is fixed at 0.5.
     """
+    EPSILON = 0.1
     NEUTRAL_WEIGHT = 0.5
     scores = {}
+    aggregate_votes = obaf.aggregate_votes()
     for arg, votes in aggregate_votes.items():
         v_minus, v_zero, v_plus = votes
         numerateur = v_plus + (v_zero * NEUTRAL_WEIGHT)
-        denominateur = v_plus + v_minus + v_zero + epsilon
+        denominateur = v_plus + v_minus + v_zero + EPSILON
         scores[arg] = round(numerateur / denominateur, 3)
     return scores
 
@@ -89,45 +73,48 @@ def prune_attacks(atts: list[list[str]], scores: dict[str, float]) -> list[list[
     return pruned_atts
 
         
-def run(args, atts, votes, semantics, aggregation_method="base"):
+def run(obaf: OBAF, semantics, aggregation_method="base"):
     """
         Run the COSAR algorithm on the given argumentation system.
     """
     # Run the correct aggregation method based on the input parameter
     if aggregation_method == "wct":
         from wct import run as wct_run
-        extensions, _, _, _, _, _, _ = wct_run(args, atts, votes, semantics)
+        extensions, _, _, _, _, _, _ = wct_run(obaf, semantics)
         # WCT does not prune attacks, so we keep the original attacks for reporting
-        pruned_atts = atts
+        pruned_atts = obaf.atts
     else:
-        aggregate = aggregate_votes(args, votes)
         if aggregation_method == "neutral-aware" or aggregation_method == "na":
-            scores = compute_neutral_aware_score(aggregate)
+            scores = compute_neutral_aware_score(obaf)
         elif aggregation_method == "bayesian":
-            scores = compute_bayesian_score(aggregate)
+            scores = compute_bayesian_score(obaf)
         else:
-            scores = compute_scores(aggregate)
+            scores = compute_scores(obaf)
 
         print(f"Scores ({aggregation_method}): {scores}")
 
         # Prune attacks based on the computed scores
-        pruned_atts = prune_attacks(atts, scores)
+        pruned_atts = prune_attacks(obaf.atts, scores)
         
         # Compute extensions using pygarg solver
-        extensions = solver.compute_some_extension(args, pruned_atts, semantics)
+        extensions = solver.compute_some_extension(obaf.args, pruned_atts, semantics)
 
     print(f"Pruned Attacks ({aggregation_method}): {pruned_atts}")
+
+    # Create a new OBAF with the pruned attacks for reporting
+    pruned_obaf = OBAF(obaf.args, pruned_atts, obaf.agents, obaf.votes)
 
     # pygarg may return "NO" when no extension is found.
     # Normalize it so this function always returns a list.
     if extensions == "NO":
         return []
-    return extensions, pruned_atts
+    return extensions, pruned_obaf
 
 if __name__ == "__main__":
     # Example usage
     args = ["A", "B", "C"]
     atts = [["A", "B"], ["B", "C"], ["C", "A"]]
+    agents = ["voter1", "voter2", "voter3", "voter4", "voter5", "voter6", "voter7", "voter8", "voter9", "voter10", "voter11", "voter12", "voter13", "voter14", "voter15", "voter16"]
 
     # Scenario designed to highlight the impact of neutral votes:
     # - A has very high base support but mostly neutral votes overall
@@ -150,23 +137,24 @@ if __name__ == "__main__":
         "voter15": {"A": 0, "B": 0, "C": 1},
         "voter16": {"A": 0, "B": 0, "C": 1}
     }
+    obaf = OBAF(args, atts, agents, votes)
 
     # Base aggregation
     print("BASE AGGREGATION\n")
-    extensions, _ = run(args, atts, votes, semantics="PR")
+    extensions, _ = run(obaf, semantics="PR")
     print(f"Extensions: {extensions}\n")
 
     # Neutral-aware aggregation
     print("NEUTRAL-AWARE AGGREGATION\n")
-    extensions_na, _ = run(args, atts, votes, semantics="PR", aggregation_method="neutral-aware")
+    extensions_na, _ = run(obaf, semantics="PR", aggregation_method="neutral-aware")
     print(f"Extensions (neutral-aware): {extensions_na}\n")
 
     # WCT aggregation
     print("WCT AGGREGATION\n")
-    extensions_wct, _ = run(args, atts, votes, semantics="PR", aggregation_method="wct")
+    extensions_wct, _ = run(obaf, semantics="PR", aggregation_method="wct")
     print(f"Extensions (wct): {extensions_wct}\n")
 
     # Bayesian aggregation
     print("BAYESIAN AGGREGATION\n")
-    extensions_bayesian, _ = run(args, atts, votes, semantics="PR", aggregation_method="bayesian")
+    extensions_bayesian, _ = run(obaf, semantics="PR", aggregation_method="bayesian")
     print(f"Extensions (Bayesian): {extensions_bayesian}")
