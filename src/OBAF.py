@@ -1,3 +1,5 @@
+import random
+
 class OBAF:
     def __init__(self, args: list[str], atts: list[list[str]], agents: list[str], votes: dict[str, dict[str, int]]):
         self.args = args
@@ -27,6 +29,88 @@ class OBAF:
                     else:
                         raise ValueError(f"Invalid vote value: {vote}. Expected -1, 0, or 1.")
         return aggregate_votes
+    
+    def generate_vote(self, agent: str, truth: str, reliability: float):
+        """
+            Generate votes on all arguments for the given agent based on a target reliability.
+
+            Reliability is computed against the expected truth-sign vector where:
+            - exact match counts as 1.0
+            - neutral vote (0) counts as 0.5
+            - opposite sign counts as 0.0
+
+            For reliability 0 and 1, generation is deterministic.
+            For intermediate reliabilities, the method samples candidates and keeps
+            the first one within tolerance, otherwise the best candidate found.
+        """
+        if agent not in self.agents:
+            raise ValueError(f"Agent '{agent}' is not part of the agents list.")
+        if truth not in self.args:
+            raise ValueError(f"Truth '{truth}' is not part of the arguments list.")
+        if not (0 <= reliability <= 1):
+            raise ValueError(f"Reliability must be between 0 and 1, got: {reliability}")
+        if not self.args:
+            raise ValueError("Cannot generate votes without arguments.")
+        
+        # Truth-sign vector: +1 for the true argument, -1 for all others
+        truth_vector = [1 if arg == truth else -1 for arg in self.args]
+
+        # Deterministic extremes
+        if reliability == 1:
+            generated_vote = truth_vector.copy()
+            self.votes[agent] = {arg: vote for arg, vote in zip(self.args, generated_vote)}
+            return
+        if reliability == 0:
+            generated_vote = [-vote for vote in truth_vector]
+            self.votes[agent] = {arg: vote for arg, vote in zip(self.args, generated_vote)}
+            return
+
+        def compute_reliability(vote_vector: list[int]) -> float:
+            score = 0.0
+            for vote, truth_sign in zip(vote_vector, truth_vector):
+                if vote == truth_sign:
+                    score += 1.0
+                elif vote == 0:
+                    score += 0.5
+            return score / len(truth_vector)
+
+        # Probabilities chosen so expected per-argument score equals target reliability:
+        # P(correct)=r^2, P(neutral)=2r(1-r), P(wrong)=(1-r)^2
+        p_correct = reliability * reliability
+        p_neutral = 2 * reliability * (1 - reliability)
+
+        # Max attemps to find a candidate within tolerance before settling for the best found
+        max_attempts = 1000
+        tolerance = 0.25 / len(self.args)
+        best_vote = truth_vector.copy()
+        best_error = abs(compute_reliability(best_vote) - reliability)
+
+        for _ in range(max_attempts):
+            candidate_vote = []
+            for truth_sign in truth_vector:
+                draw = random.random()
+                if draw < p_correct:
+                    candidate_vote.append(truth_sign)
+                elif draw < p_correct + p_neutral:
+                    candidate_vote.append(0)
+                else:
+                    candidate_vote.append(-truth_sign)
+
+            candidate_reliability = compute_reliability(candidate_vote)
+            error = abs(candidate_reliability - reliability)
+
+            if error < best_error:
+                best_error = error
+                best_vote = candidate_vote
+
+            if error <= tolerance:
+                best_vote = candidate_vote
+                break
+        
+        # Update the votes for the agent
+        self.votes[agent] = {arg: vote for arg, vote in zip(self.args, best_vote)}
+        print(f"Generated vote for agent '{agent}': {self.votes[agent]} with reliability {compute_reliability(best_vote):.3f} (target: {reliability})")
+        return best_vote
     
     def __str__(self):
         """
@@ -82,4 +166,17 @@ class OBAF:
             for argument in arguments_dict.keys():
                 if list(arguments_dict.keys()).count(argument) > 1:
                     raise ValueError(f"Duplicate vote from agent '{agent}' for argument '{argument}'.")
+                
+if __name__ == "__main__":
+    # Example usage
+    args = ['a', 'b', 'c']
+    atts = [['a', 'b'], ['b', 'c']]
+    agents = ['agent1', 'agent2']
+    votes = {
+        'agent1': {'a': 1, 'b': -1, 'c': 0},
+        'agent2': {'a': -1, 'b': 1, 'c': 0}
+    }
+    obaf = OBAF(args, atts, agents, votes)
+    obaf.__str__()
+    obaf.generate_vote('agent1', 'a', 0.5)
 
