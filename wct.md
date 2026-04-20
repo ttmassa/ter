@@ -92,7 +92,7 @@ The cost of an attack is therefore the difference between the attacker's force a
 ### Formal Definition
 
 $$
-W(x, y) = \max(0,\; \tau^N(x) - IN(y))
+W(x, y) = |\tau^N(x) - IN(y)|
 $$
 
 ### Interpretation

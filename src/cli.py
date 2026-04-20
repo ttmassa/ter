@@ -65,7 +65,7 @@ def main():
 
     if cli_args.algorithm == "cosar":
         # Run COSAR
-        pruned_atts, extensions = run_cosar(
+        extensions, pruned_atts = run_cosar(
             args,
             atts,
             votes,
@@ -95,7 +95,7 @@ def main():
             print("No extension found for this semantics.")
             return
 
-        best_extensions = run_css(
+        extensions = run_css(
             initial_extensions,
             args,
             votes,
@@ -103,7 +103,7 @@ def main():
             agg=cli_args.agg,
         )
 
-        _print_extensions("Best extension(s) according to CSS", best_extensions)
+        _print_extensions("Best extension(s) according to CSS", extensions)
 
         if not cli_args.no_write:
             print("\nCSS mode does not generate an output .apx file.")
@@ -288,11 +288,11 @@ def _select_cosar_parameters_interactively(cli_args: argparse.Namespace) -> None
 
     while True:
         method = input(
-            f"  Aggregation base/neutral-aware/na/bayesian [{cli_args.aggregation_method}]: "
+            f"  Aggregation base/neutral-aware/wct/bayesian [{cli_args.aggregation_method}]: "
         ).strip().lower()
         if not method:
             break
-        if method in {"base", "neutral-aware", "na", "bayesian"}:
+        if method in {"base", "neutral-aware", "wct", "bayesian"}:
             cli_args.aggregation_method = method
             break
         print("  Invalid aggregation. Choose base, neutral-aware, na, or bayesian.")
@@ -388,7 +388,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--aggregation-method",
         default="base",
-        choices=["base", "neutral-aware", "na", "bayesian"],
+        choices=["base", "neutral-aware", "wct", "bayesian"],
         help="COSAR aggregation method: base (default), neutral-aware/na, or bayesian.",
     )
 

@@ -38,7 +38,7 @@ def compute_scores(aggregate_votes: dict[str, list[int]]) -> dict[str, float]:
 
 def compute_neutral_aware_score(aggregate_votes: dict[str, list[int]], theta_low: float = 0.33, theta_high: float = 0.66) -> dict[str, float]:
     """
-        Compute the neutral-aware score of each argument using the formula given in neutral_aware_definition.md. 
+        Compute the neutral-aware score of each argument using the formula given in definitions.md. 
     """
     # Start by computing the base scores using the original formula
     base_scores = compute_scores(aggregate_votes)
@@ -66,7 +66,7 @@ def compute_neutral_aware_score(aggregate_votes: dict[str, list[int]], theta_low
 
 def compute_bayesian_score(aggregate_votes: dict[str, list[int]], epsilon: float = 0.1) -> dict[str, float]:
     """
-        Compute the neutral-aware score of each argument using the Bayesian approach.
+        Compute the neutral-aware score of each argument using the Bayesian approach defined in definitions.md.
         The neutral vote weight is fixed at 0.5.
     """
     NEUTRAL_WEIGHT = 0.5
@@ -93,23 +93,36 @@ def run(args, atts, votes, semantics, aggregation_method="base"):
     """
         Run the COSAR algorithm on the given argumentation system.
     """
-    aggregate = aggregate_votes(args, votes)
     # Run the correct aggregation method based on the input parameter
-    if aggregation_method == "neutral-aware" or aggregation_method == "na":
-        scores = compute_neutral_aware_score(aggregate)
-    elif aggregation_method == "bayesian":
-        scores = compute_bayesian_score(aggregate)
+    if aggregation_method == "wct":
+        from wct import run as wct_run
+        extensions, _, _, _, _, _, _ = wct_run(args, atts, votes, semantics)
+        # WCT does not prune attacks, so we keep the original attacks for reporting
+        pruned_atts = atts
     else:
-        scores = compute_scores(aggregate)
+        aggregate = aggregate_votes(args, votes)
+        if aggregation_method == "neutral-aware" or aggregation_method == "na":
+            scores = compute_neutral_aware_score(aggregate)
+        elif aggregation_method == "bayesian":
+            scores = compute_bayesian_score(aggregate)
+        else:
+            scores = compute_scores(aggregate)
+
+        print(f"Scores ({aggregation_method}): {scores}")
+
+        # Prune attacks based on the computed scores
+        pruned_atts = prune_attacks(atts, scores)
         
-    print(f"Scores ({aggregation_method}): {scores}")
-    
-    pruned_atts = prune_attacks(atts, scores)
+        # Compute extensions using pygarg solver
+        extensions = solver.compute_some_extension(args, pruned_atts, semantics)
 
-    # Compute extensions using pygarg solver
-    extensions = solver.compute_some_extension(args, pruned_atts, semantics)
+    print(f"Pruned Attacks ({aggregation_method}): {pruned_atts}")
 
-    return pruned_atts, extensions
+    # pygarg may return "NO" when no extension is found.
+    # Normalize it so this function always returns a list.
+    if extensions == "NO":
+        return []
+    return extensions, pruned_atts
 
 if __name__ == "__main__":
     # Example usage
@@ -140,18 +153,20 @@ if __name__ == "__main__":
 
     # Base aggregation
     print("BASE AGGREGATION\n")
-    pruned_atts, extensions = run(args, atts, votes, semantics="PR")
-    print(f"Pruned Attacks: {pruned_atts}")
+    extensions, _ = run(args, atts, votes, semantics="PR")
     print(f"Extensions: {extensions}\n")
 
     # Neutral-aware aggregation
     print("NEUTRAL-AWARE AGGREGATION\n")
-    pruned_atts_na, extensions_na = run(args, atts, votes, semantics="PR", aggregation_method="neutral-aware")
-    print(f"Pruned Attacks (Neutral-Aware): {pruned_atts_na}")
-    print(f"Extensions (Neutral-Aware): {extensions_na}\n")
+    extensions_na, _ = run(args, atts, votes, semantics="PR", aggregation_method="neutral-aware")
+    print(f"Extensions (neutral-aware): {extensions_na}\n")
+
+    # WCT aggregation
+    print("WCT AGGREGATION\n")
+    extensions_wct, _ = run(args, atts, votes, semantics="PR", aggregation_method="wct")
+    print(f"Extensions (wct): {extensions_wct}\n")
 
     # Bayesian aggregation
     print("BAYESIAN AGGREGATION\n")
-    pruned_atts_bayesian, extensions_bayesian = run(args, atts, votes, semantics="PR", aggregation_method="bayesian")
-    print(f"Pruned Attacks (Bayesian): {pruned_atts_bayesian}")
+    extensions_bayesian, _ = run(args, atts, votes, semantics="PR", aggregation_method="bayesian")
     print(f"Extensions (Bayesian): {extensions_bayesian}")

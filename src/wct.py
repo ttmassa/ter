@@ -7,6 +7,9 @@ from pygarg.dung import solver
 
 
 def compute_force(agg):
+    """
+        Compute the force of each argument using the formula given in wct.md.
+    """
     result = {}
     for arg, (v_minus, v_zero, v_plus) in agg.items():
         total = v_plus + v_minus + v_zero
@@ -15,6 +18,9 @@ def compute_force(agg):
 
 
 def compute_stability(agg):
+    """
+        Compute the stability of each argument using the formula given in wct.md.
+    """
     result = {}
     for arg, (v_minus, v_zero, v_plus) in agg.items():
         total = v_plus + v_minus + v_zero
@@ -23,19 +29,27 @@ def compute_stability(agg):
 
 
 def compute_attack_weights(atts, tau, stab):
+    """
+        Compute the weight of each attack using the formula given in wct.md.
+    """
     return {(x, y): max(0.0, tau[x] - stab[y]) for x, y in atts}
 
 
 def compute_cost(ext, weights):
+    """
+        Compute the cost of an extension using the formula given in wct.md.
+    """
     return sum(w for (x, y), w in weights.items() if x in ext and y in ext)
 
 
 def run(args, atts, votes, semantics, k=None):
+    # Aggregate votes and compute force, stability, and attack weights
     agg = aggregate_votes(args, votes)
     tau = compute_force(agg)
     stab = compute_stability(agg)
     weights = compute_attack_weights(atts, tau, stab)
 
+    # Determine the tolerance threshold K (endogenous or manual)
     if k is None:
         k, k_method = compute_endogenous_k(weights)
     else:
@@ -44,15 +58,18 @@ def run(args, atts, votes, semantics, k=None):
     pruned_zero = [[x, y] for x, y in atts if weights[(x, y)] > 0]
     pruned_k = [[x, y] for x, y in atts if weights[(x, y)] > k]
 
+    # Collect candidate extensions
     candidates = set()
     for graph in [atts, pruned_zero, pruned_k]:
         for ext in solver.extension_enumeration(args, graph, semantics):
             candidates.add(frozenset(ext))
 
+    # Filter valid extensions based on cost and keep only maximal ones
     valid = [e for e in candidates if compute_cost(e, weights) <= k]
     maximal = [e for e in valid if not any(e < other for other in valid)]
+    solutions = [sorted(e) for e in maximal]
 
-    return maximal, agg, tau, stab, weights, k, k_method
+    return solutions, agg, tau, stab, weights, k, k_method
 
 
 def main():
