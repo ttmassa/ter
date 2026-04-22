@@ -81,6 +81,7 @@ class OBAF:
 
         # Max attemps to find a candidate within tolerance before settling for the best found
         max_attempts = 1000
+        round_number = 1
         tolerance = 0.25 / len(self.args)
         best_vote = truth_vector.copy()
         best_error = abs(compute_reliability(best_vote) - reliability)
@@ -97,7 +98,9 @@ class OBAF:
                     candidate_vote.append(-truth_sign)
 
             candidate_reliability = compute_reliability(candidate_vote)
+            print(f"Candidate reliability found in round {round_number}: {candidate_reliability}")
             error = abs(candidate_reliability - reliability)
+            round_number += 1
 
             if error < best_error:
                 best_error = error
@@ -168,15 +171,47 @@ class OBAF:
                     raise ValueError(f"Duplicate vote from agent '{agent}' for argument '{argument}'.")
                 
 if __name__ == "__main__":
-    # Example usage
-    args = ['a', 'b', 'c']
-    atts = [['a', 'b'], ['b', 'c']]
-    agents = ['agent1', 'agent2']
+    # More complex example usage
+    args = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j']
+    atts = [
+        ['a', 'b'], ['a', 'd'],
+        ['b', 'a'], ['b', 'e'],
+        ['c', 'b'], ['c', 'f'],
+        ['d', 'c'], ['d', 'g'],
+        ['e', 'd'], ['e', 'h'],
+        ['f', 'e'], ['f', 'i'],
+        ['g', 'f'], ['g', 'j'],
+        ['h', 'g'], ['h', 'a'],
+        ['i', 'h'], ['i', 'c'],
+        ['j', 'i'], ['j', 'b']
+    ]
+    agents = ['agent1', 'agent2', 'agent3', 'agent4', 'agent5', 'agent6']
     votes = {
-        'agent1': {'a': 1, 'b': -1, 'c': 0},
-        'agent2': {'a': -1, 'b': 1, 'c': 0}
+        'agent1': {
+            'a': 1, 'b': -1, 'c': -1, 'd': 0, 'e': -1,
+            'f': 1, 'g': 0, 'h': -1, 'i': 1, 'j': -1
+        },
+        'agent2': {
+            'a': -1, 'b': 1, 'c': 0, 'd': -1, 'e': 1,
+            'f': -1, 'g': 0, 'h': 1, 'i': -1, 'j': 1
+        },
+        'agent3': {
+            'a': 0, 'b': 1, 'c': -1, 'd': 1, 'e': 0,
+            'f': -1, 'g': 1, 'h': -1, 'i': 0, 'j': 1
+        },
+        'agent4': {
+            'a': 1, 'b': 0, 'c': 1, 'd': -1, 'e': -1,
+            'f': 0, 'g': -1, 'h': 1, 'i': -1, 'j': 0
+        },
+        'agent5': {
+            'a': -1, 'b': -1, 'c': 1, 'd': 1, 'e': 0,
+            'f': 1, 'g': -1, 'h': 0, 'i': 1, 'j': -1
+        },
+        'agent6': {
+            'a': 0, 'b': 0, 'c': -1, 'd': 1, 'e': 1,
+            'f': -1, 'g': 1, 'h': 0, 'i': -1, 'j': 1
+        }
     }
     obaf = OBAF(args, atts, agents, votes)
-    obaf.__str__()
-    obaf.generate_vote('agent1', 'a', 0.5)
+    obaf.generate_vote('agent1', 'a', 0.6)
 
