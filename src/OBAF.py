@@ -30,7 +30,7 @@ class OBAF:
                         raise ValueError(f"Invalid vote value: {vote}. Expected -1, 0, or 1.")
         return aggregate_votes
     
-    def generate_vote(self, agent: str, truth: str, reliability: float):
+    def generate_vote(self, agent: str, truth: list[str], reliability: float):
         """
             Generate votes on all arguments for the given agent based on a target reliability.
 
@@ -45,15 +45,16 @@ class OBAF:
         """
         if agent not in self.agents:
             raise ValueError(f"Agent '{agent}' is not part of the agents list.")
-        if truth not in self.args:
-            raise ValueError(f"Truth '{truth}' is not part of the arguments list.")
+        for t in truth:
+            if t not in self.args:
+                raise ValueError(f"Truth '{truth}' is not part of the arguments list.")
         if not (0 <= reliability <= 1):
             raise ValueError(f"Reliability must be between 0 and 1, got: {reliability}")
         if not self.args:
             raise ValueError("Cannot generate votes without arguments.")
         
         # Truth-sign vector: +1 for the true argument, -1 for all others
-        truth_vector = [1 if arg == truth else -1 for arg in self.args]
+        truth_vector = [1 if arg in truth else -1 for arg in self.args]
 
         # Deterministic extremes
         if reliability == 1:
@@ -217,5 +218,5 @@ if __name__ == "__main__":
     }
     obaf = OBAF(args, atts, agents, votes)
     obaf.__str__()
-    obaf.generate_vote('agent1', '\u2205', 0.6)
+    obaf.generate_vote('agent1', ['a', 'b'], 0.6)
 
