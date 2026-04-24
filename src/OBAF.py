@@ -45,9 +45,8 @@ class OBAF:
         """
         if agent not in self.agents:
             raise ValueError(f"Agent '{agent}' is not part of the agents list.")
-        for t in truth:
-            if t not in self.args:
-                raise ValueError(f"Truth '{truth}' is not part of the arguments list.")
+        if truth not in self.args:
+            raise ValueError(f"Truth '{truth}' is not part of the arguments list.")
         if not (0 <= reliability <= 1):
             raise ValueError(f"Reliability must be between 0 and 1, got: {reliability}")
         if not self.args:
