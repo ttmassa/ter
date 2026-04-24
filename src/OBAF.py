@@ -98,7 +98,7 @@ class OBAF:
                     candidate_vote.append(-truth_sign)
 
             candidate_reliability = compute_reliability(candidate_vote)
-            print(f"Candidate reliability found in round {round_number}: {candidate_reliability}")
+            print(f"Candidate reliability found in round {round_number}: {candidate_reliability:.2f}")
             error = abs(candidate_reliability - reliability)
             round_number += 1
 
@@ -112,7 +112,7 @@ class OBAF:
         
         # Update the votes for the agent
         self.votes[agent] = {arg: vote for arg, vote in zip(self.args, best_vote)}
-        print(f"Generated vote for agent '{agent}': {self.votes[agent]} with reliability {compute_reliability(best_vote):.3f} (target: {reliability})")
+        print(f"Generated vote for agent '{agent}': {self.votes[agent]} with reliability {compute_reliability(best_vote):.2f} (target: {reliability:.2f})")
         return best_vote
     
     def __str__(self):
@@ -142,6 +142,9 @@ class OBAF:
         """
             Validate the OBAF structure
         """
+        # Start by adding the empty set argument to the arguments list
+        if '∅' not in self.args:
+            self.args.append('∅') 
         # Make sure every agent has a vote for every argument, filling in 0 for missing votes
         for agent in self.agents:
             if agent not in self.votes:
@@ -213,5 +216,6 @@ if __name__ == "__main__":
         }
     }
     obaf = OBAF(args, atts, agents, votes)
-    obaf.generate_vote('agent1', 'a', 0.6)
+    obaf.__str__()
+    obaf.generate_vote('agent1', '\u2205', 0.6)
 
