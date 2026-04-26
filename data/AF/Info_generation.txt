@@ -1,0 +1,23 @@
+Les AF sont générés à partir de deux modèles bien connus pour générer des graphes artificiels : Barabási-Albert (BA) et Watts-Strogatz (WS).
+
+Total de 84 cadres d’argumentation abstraits (AF), répartis équitablement entre :
+— 42 graphes Barabási–Albert (BA),
+— 42 graphes Watts–Strogatz (WS).
+
+Le choix des AF a été fait de manière à couvrir une diversité de structures, selon deux critères principaux :
+— le nombre d’arguments : 10, 20 ou 30 ;
+— la probabilité de cycle : entre 0.3 et 0.9.
+
+[BA] le modèle Barabasi-Albert (BA) génère des réseaux dits "sans échelle" (scale-free networks), dont la structure est caractérisée par quelques nœuds possédant un très grand nombre de liens, tandis que la quasi-totalité des nœuds ne sont connectés qu'à un petit nombre d'autres nœuds ;
+[WS] le modèle Watts-Strogatz (WS) produit des graphes présentant les propriétés des réseaux petit-monde (small-world networks), telles qu'un fort coefficient de clustering et une faible longueur moyenne des chemins.
+
+La génération de ces graphes a été faite avec le générateur AFBenchGen2 (Cerutti et al., 2017)
+
+
+
+
+
+(Cerutti et al., 2017) Cerutti, F., Vallati, M., & Giacomin, M. (2017). Afbenchgen2: A generator for random argumentation frameworks.
+
+
+

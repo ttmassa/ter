@@ -1,0 +1,28 @@
+agt(A, B, C, D, E, F, G, H, I, J, K, L, M, N).
+arg(a).
+arg(b).
+arg(c).
+arg(d).
+att(a, c).
+att(b, c).
+att(c, d).
+att(d, b).
+vot(A, b, 1).
+vot(B, a, 1).
+vot(B, c, -1).
+vot(C, d, 1).
+vot(D, b, -1).
+vot(E, a, 1).
+vot(E, d, -1).
+vot(F, c, 1).
+vot(G, a, -1).
+vot(H, b, 1).
+vot(H, c, -1).
+vot(I, d, 1).
+vot(J, b, -1).
+vot(K, a, 1).
+vot(K, d, -1).
+vot(L, c, 1).
+vot(M, a, -1).
+vot(N, b, 1).
+vot(N, c, -1).
