@@ -45,8 +45,9 @@ class OBAF:
         """
         if agent not in self.agents:
             raise ValueError(f"Agent '{agent}' is not part of the agents list.")
-        if truth not in self.args:
-            raise ValueError(f"Truth '{truth}' is not part of the arguments list.")
+        for t in truth:
+            if t not in self.args:
+                raise ValueError(f"Truth argument '{t}' is not part of the arguments list.")
         if not (0 <= reliability <= 1):
             raise ValueError(f"Reliability must be between 0 and 1, got: {reliability}")
         if not self.args:
@@ -98,7 +99,6 @@ class OBAF:
                     candidate_vote.append(-truth_sign)
 
             candidate_reliability = compute_reliability(candidate_vote)
-            print(f"Candidate reliability found in round {round_number}: {candidate_reliability:.2f}")
             error = abs(candidate_reliability - reliability)
             round_number += 1
 
@@ -112,8 +112,55 @@ class OBAF:
         
         # Update the votes for the agent
         self.votes[agent] = {arg: vote for arg, vote in zip(self.args, best_vote)}
-        print(f"Generated vote for agent '{agent}': {self.votes[agent]} with reliability {compute_reliability(best_vote):.2f} (target: {reliability:.2f})")
+        print(f"\nGenerated vote for agent '{agent}': {self.votes[agent]} with reliability {compute_reliability(best_vote):.2f} in {round_number} round{"s" if round_number > 1 else ""} (target: {reliability:.2f})")
         return best_vote
+    
+    def generate_votes(self, truth: list[str], reliability: float, distribution_type: str):
+        """
+            Generate votes for all agents based on a target reliability against the given truth.
+        """
+        if distribution_type == "uniform":
+            for agent in self.agents:
+                self.generate_vote(agent, truth, reliability)
+        elif distribution_type == "average":
+            agent_count = len(self.agents)
+            target_total_reliability = reliability * agent_count
+            sampled_reliabilities = []
+            assigned_total_reliability = 0.0
+
+            # Draw random reliabilities for all but the last agent.
+            # Bounds keep each draw in [0, 1] while still allowing an exact final average.
+            for index in range(agent_count - 1):
+                remaining_agents = agent_count - index - 1
+                # Calculate the minimum and maximum allowed reliability for the current agent
+                min_allowed_reliability = max(
+                    0.0,
+                    target_total_reliability - assigned_total_reliability - remaining_agents,
+                )
+                max_allowed_reliability = min(
+                    1.0,
+                    target_total_reliability - assigned_total_reliability,
+                )
+                # Draw a random reliability for the current agent within the allowed bounds
+                sampled_reliability = random.uniform(min_allowed_reliability, max_allowed_reliability)
+                sampled_reliabilities.append(sampled_reliability)
+                assigned_total_reliability += sampled_reliability
+
+            # The last value closes the sum so the global average matches the target.
+            last_reliability = target_total_reliability - assigned_total_reliability
+            sampled_reliabilities.append(min(1.0, max(0.0, last_reliability)))
+
+            # Shuffle to avoid positional bias (first agents would otherwise follow the same pattern).
+            random.shuffle(sampled_reliabilities)
+            for agent, agent_reliability in zip(self.agents, sampled_reliabilities):
+                self.generate_vote(agent, truth, agent_reliability)
+
+            achieved_average = sum(sampled_reliabilities) / len(sampled_reliabilities)
+            print(
+                f"Assigned random reliabilities with average {achieved_average:.2f} (target: {reliability:.2f})."
+            )
+        else:
+            raise ValueError(f"Unsupported distribution type: {distribution_type}. Supported types: 'uniform', 'average'.")
     
     def __str__(self):
         """
@@ -217,5 +264,5 @@ if __name__ == "__main__":
     }
     obaf = OBAF(args, atts, agents, votes)
     obaf.__str__()
-    obaf.generate_vote('agent1', ['a', 'b'], 0.6)
+    obaf.generate_votes(['a', 'b'], 0.6, distribution_type="average")
 
