@@ -121,7 +121,7 @@ Once we have obtained $\tau_{\epsilon}^B$ for all arguments in $Ar$, we can use 
 
 ## Comparative Analysis (Preferred Semantics)
 
-The following tables compare the four approaches on five argumentation scenarios from the `data/` directory. All results use: $\epsilon = 0.1$, $neutral\_weight = 0.5$, $K = 0.1$ (WCT), and Preferred (PR) semantics.
+The following tables compare the four approaches on five argumentation scenarios from the `data/test/` directory. All results use: $\epsilon = 0.1$, $neutral\_weight = 0.5$, $K = 0.1$ (WCT), and Preferred (PR) semantics.
 
 ### Extensions Summary
 
