@@ -1,4 +1,5 @@
 from OBAF import OBAF
+from pygarg.dung import solver
 
 def read_apx(file_path: str) -> OBAF:
     """
@@ -88,6 +89,63 @@ def write_apx(file_path: str, obaf: OBAF) -> None:
                     continue
                 f.write(f"vot({agent}, {argument}, {vote}).\n")
 
+def af_to_obaf(file_path: str, semantics: str, reliability: float, number_of_agents: int, distribution_type: str):
+    """
+        Convert an AF file to an OBAF by generating votes according to a given semantics, reliability, number of agents, and distribution type. 
+    """
+    # Validate file extension
+    if not file_path.endswith('.apx'):
+        raise ValueError(f"File extension must be .apx, got: {file_path}")
+    if semantics not in ['PR', 'CO']:
+        raise ValueError(f"Unsupported semantics: {semantics}. Supported semantics: 'preferred', 'complete'.")
+    if distribution_type not in ['uniform', 'average']:
+        raise ValueError(f"Unsupported distribution type: {distribution_type}. Supported types: 'uniform', 'average'.")
+    
+    # Read the AF from the file (ignoring votes and agents if they are present)
+    args = []
+    atts = []
+    with open(file_path, 'r') as f:
+        line_counter = 0
+        for line in f:
+            line_counter += 1
+            line = line.strip()
+            # Skip empty lines
+            if not line:
+                continue
+            
+            if line.startswith('arg'):
+                arg = _parse_arg(line, file_path, line_counter)
+                args.append(arg)
+            elif line.startswith('att'):
+                att = _parse_att(line, file_path, line_counter)
+                atts.append(att)
+            elif line.startswith('agt') or line.startswith('vot'):
+                # Ignore any agent or vote lines since we will generate new votes
+                continue
+            else:
+                raise ValueError(f"Invalid line format: {line}. Expected lines to start with 'arg', 'att', 'agt', or 'vot', line {line_counter}, in {file_path}.")
+
+    # Compute extensions using pygarg solver
+    raw_truth_extensions = solver.compute_some_extension(args, atts, semantics)
+    # Convert the computed extensions to a list of strings to match the expected format for generating votes
+    truth_extensions = [str(ext) for ext in raw_truth_extensions]
+    if not truth_extensions:
+        raise ValueError(f"No extensions found for the given AF under {semantics} semantics, in {file_path}. Cannot generate votes without a truth extension.")
+    
+    # Use the computed extensions as the "truth" for generating votes
+    agents = [f"agent{i+1}" for i in range(number_of_agents)]
+    votes = {}
+    obaf = OBAF(args, atts, agents, votes)    
+    obaf.generate_votes(truth_extensions, reliability, distribution_type)
+
+    # Create a new OBAF file with the generated votes
+    file_name = file_path.split('/')[-1]
+    file_folder = file_path.split('/')[-2]
+    new_file_name = file_name[:-4] + f"-genVotes-{semantics}-rel{reliability:.2f}-agents{number_of_agents}-{distribution_type}.apx"
+    write_apx(f'data/OBAF/{file_folder}/{new_file_name}', obaf)
+
+    return obaf
+    
 def _parse_arg(line: str, file_path: str, line_number: int) -> str:
     """
         Parse the argument from the given line and return it as a string.
