@@ -48,6 +48,9 @@ class OBAF:
         for t in truth:
             if t not in self.args:
                 raise ValueError(f"Truth argument '{t}' is not part of the arguments list.")
+        # Set the empty set as truth if the provided truth is empty
+        if not truth:
+            truth = ['∅']
         if not (0 <= reliability <= 1):
             raise ValueError(f"Reliability must be between 0 and 1, got: {reliability}")
         if not self.args:

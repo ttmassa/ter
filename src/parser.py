@@ -129,8 +129,9 @@ def af_to_obaf(file_path: str, semantics: str, reliability: float, number_of_age
     raw_truth_extensions = solver.compute_some_extension(args, atts, semantics)
     # Convert the computed extensions to a list of strings to match the expected format for generating votes
     truth_extensions = [str(ext) for ext in raw_truth_extensions]
+    # Set the empty set as truth if no extensions are found
     if not truth_extensions:
-        raise ValueError(f"No extensions found for the given AF under {semantics} semantics, in {file_path}. Cannot generate votes without a truth extension.")
+        truth_extensions = ['∅']
     
     # Use the computed extensions as the "truth" for generating votes
     agents = [f"agent{i+1}" for i in range(number_of_agents)]
