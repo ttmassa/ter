@@ -1,3 +1,5 @@
+import os
+import random
 from OBAF import OBAF
 from pygarg.dung import solver
 
@@ -76,6 +78,10 @@ def write_apx(file_path: str, obaf: OBAF) -> None:
     if not file_path.endswith('.apx'):
         raise ValueError(f"File extension must be .apx, got: {file_path}")
 
+    output_dir = os.path.dirname(file_path)
+    if output_dir:
+        os.makedirs(output_dir, exist_ok=True)
+
     with open(file_path, 'w') as f:
         f.write(f"agt({', '.join(obaf.agents)}).\n")
         for arg in obaf.args:
@@ -88,6 +94,8 @@ def write_apx(file_path: str, obaf: OBAF) -> None:
                 if vote == 0:
                     continue
                 f.write(f"vot({agent}, {argument}, {vote}).\n")
+
+    print(f"Successfully wrote OBAF to file: {file_path}")
 
 def af_to_obaf(file_path: str, semantics: str, reliability: float, number_of_agents: int, distribution_type: str):
     """
@@ -126,26 +134,30 @@ def af_to_obaf(file_path: str, semantics: str, reliability: float, number_of_age
                 raise ValueError(f"Invalid line format: {line}. Expected lines to start with 'arg', 'att', 'agt', or 'vot', line {line_counter}, in {file_path}.")
 
     # Compute extensions using pygarg solver
-    raw_truth_extensions = solver.compute_some_extension(args, atts, semantics)
-    # Convert the computed extensions to a list of strings to match the expected format for generating votes
-    truth_extensions = [str(ext) for ext in raw_truth_extensions]
-    # Set the empty set as truth if no extensions are found
-    if not truth_extensions:
-        truth_extensions = ['∅']
+    computed_extensions = solver.extension_enumeration(args, atts, semantics)
+    # Pick a random extension as the truth for generating votes.
+    if computed_extensions:
+        truth_extension = computed_extensions[random.randint(0, len(computed_extensions) - 1)]
+    else:
+        truth_extension = ['∅']
+    # Convert truth to a list of strings to match the expected format for generating votes
+    truth_extension = [str(ext) for ext in truth_extension]
     
     # Use the computed extensions as the "truth" for generating votes
     agents = [f"agent{i+1}" for i in range(number_of_agents)]
     votes = {}
     obaf = OBAF(args, atts, agents, votes)    
-    obaf.generate_votes(truth_extensions, reliability, distribution_type)
+    obaf.generate_votes(truth_extension, reliability, distribution_type)
 
     # Create a new OBAF file with the generated votes
     file_name = file_path.split('/')[-1]
     file_folder = file_path.split('/')[-2]
-    new_file_name = file_name[:-4] + f"-genVotes-{semantics}-rel{reliability:.2f}-agents{number_of_agents}-{distribution_type}.apx"
-    write_apx(f'data/OBAF/{file_folder}/{new_file_name}', obaf)
+    truth_label = "∅" if not truth_extension else ''.join(truth_extension)
+    new_file_name = file_name[:-4] + f"-sem{semantics}-rel{reliability:.1f}-numAgt{number_of_agents}-dist{distribution_type}-truth{truth_label}.apx"
+    output_file_path = f'data/OBAF/{file_folder}/{new_file_name}'
+    write_apx(output_file_path, obaf)
 
-    return obaf
+    return obaf, output_file_path, truth_extension
     
 def _parse_arg(line: str, file_path: str, line_number: int) -> str:
     """
