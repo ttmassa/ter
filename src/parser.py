@@ -139,7 +139,7 @@ def af_to_obaf(file_path: str, semantics: str, reliability: float, number_of_age
     if computed_extensions:
         truth_extension = computed_extensions[random.randint(0, len(computed_extensions) - 1)]
     else:
-        truth_extension = ['∅']
+        truth_extension = ['']
     # Convert truth to a list of strings to match the expected format for generating votes
     truth_extension = [str(ext) for ext in truth_extension]
     
@@ -152,7 +152,9 @@ def af_to_obaf(file_path: str, semantics: str, reliability: float, number_of_age
     # Create a new OBAF file with the generated votes
     file_name = file_path.split('/')[-1]
     file_folder = file_path.split('/')[-2]
-    truth_label = "∅" if not truth_extension else ''.join(truth_extension)
+    truth_label = "" if not truth_extension else ''.join(truth_extension)
+    # Create a new file name using the following format:
+    # <original_file_name>-sem<semantics>-rel<reliability>-numAgt<number_of_agents>-dist<distribution_type>-truth<truth_extension>.apx
     new_file_name = file_name[:-4] + f"-sem{semantics}-rel{reliability:.1f}-numAgt{number_of_agents}-dist{distribution_type}-truth{truth_label}.apx"
     output_file_path = f'data/OBAF/{file_folder}/{new_file_name}'
     write_apx(output_file_path, obaf)

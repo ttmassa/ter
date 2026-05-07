@@ -9,7 +9,7 @@ class OBAF:
         # Check for any potential issues
         self._validate()
 
-    def aggregate_votes(self) -> dict[str, list[int]]:
+    def aggregate_votes(self, log = True) -> dict[str, list[int]]:
         """
             Compute the score of each argument based on the votes and return it in this format:
             {
@@ -50,7 +50,7 @@ class OBAF:
                 raise ValueError(f"Truth argument '{t}' is not part of the arguments list.")
         # Set the empty set as truth if the provided truth is empty
         if not truth:
-            truth = ['∅']
+            truth = ['']
         if not (0 <= reliability <= 1):
             raise ValueError(f"Reliability must be between 0 and 1, got: {reliability}")
         if not self.args:
@@ -192,9 +192,6 @@ class OBAF:
         """
             Validate the OBAF structure
         """
-        # Start by adding the empty set argument to the arguments list
-        if '∅' not in self.args:
-            self.args.append('∅') 
         # Make sure every agent has a vote for every argument, filling in 0 for missing votes
         for agent in self.agents:
             if agent not in self.votes:

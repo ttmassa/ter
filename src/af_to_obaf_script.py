@@ -69,7 +69,7 @@ def parse_source_metadata(file_path: Path) -> dict[str, object]:
 
 
 def format_truth_extension(truth_extension: list[str]) -> str:
-    return "∅" if not truth_extension else "|".join(truth_extension)
+    return "" if not truth_extension else "|".join(truth_extension)
 
 def write_metadata_csv(rows: list[dict[str, object]]) -> None:
     OBAF_ROOT.mkdir(parents=True, exist_ok=True)
