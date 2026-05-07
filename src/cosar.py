@@ -23,7 +23,6 @@ def compute_neutral_aware_score(obaf: OBAF) -> dict[str, float]:
     # Start by computing the base scores using the original formula
     base_scores = compute_scores(obaf)
     aggregate_votes = obaf.aggregate_votes()
-    print(f"Votes: {aggregate_votes}")
     scores = {}
 
     for arg, votes in aggregate_votes.items():
@@ -73,7 +72,7 @@ def prune_attacks(atts: list[list[str]], scores: dict[str, float]) -> list[list[
     return pruned_atts
 
         
-def run(obaf: OBAF, semantics, aggregation_method="base"):
+def run(obaf: OBAF, semantics, aggregation_method="base", log = True):
     """
         Run the COSAR algorithm on the given argumentation system.
     """
@@ -91,15 +90,17 @@ def run(obaf: OBAF, semantics, aggregation_method="base"):
         else:
             scores = compute_scores(obaf)
 
-        print(f"Scores ({aggregation_method}): {scores}")
+        if log:
+            print(f"Scores ({aggregation_method}): {scores}")
 
         # Prune attacks based on the computed scores
         pruned_atts = prune_attacks(obaf.atts, scores)
         
         # Compute extensions using pygarg solver
-        extensions = solver.compute_some_extension(obaf.args, pruned_atts, semantics)
+        extensions = solver.extension_enumeration(obaf.args, pruned_atts, semantics)
 
-    print(f"Pruned Attacks ({aggregation_method}): {pruned_atts}")
+    if log:
+        print(f"Pruned Attacks ({aggregation_method}): {pruned_atts}")
 
     # Create a new OBAF with the pruned attacks for reporting
     pruned_obaf = OBAF(obaf.args, pruned_atts, obaf.agents, obaf.votes)
