@@ -95,8 +95,7 @@ def main():
 
         extensions = run_css(
             initial_extensions,
-            args,
-            votes,
+            obaf,
             measure=cli_args.measure,
             agg=cli_args.agg,
         )
