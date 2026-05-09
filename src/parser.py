@@ -159,7 +159,7 @@ def af_to_obaf(file_path: str, semantics: str, reliability: float, number_of_age
     output_file_path = f'data/OBAF/{file_folder}/{new_file_name}'
     write_apx(output_file_path, obaf)
 
-    return obaf, output_file_path, truth_extension
+    return obaf, truth_extension
     
 def _parse_arg(line: str, file_path: str, line_number: int) -> str:
     """
