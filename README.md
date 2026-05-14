@@ -1,11 +1,14 @@
-# TER - COSAR/CSS CLI
+# TER - Analysis of neutral votes in Opinion-Based Argumentation Frameworks
 
-Command-line tool for two analyses of argumentation frameworks:
+Research software for analyzing Opinion-Based Argumentation Frameworks (OBAFs) through the COSAR and CSS algorithms. This project evaluates how different vote-aggregation strategies, including those that account for neutral votes, recover the given truth extension under varied agent reliability and group configurations. This work is very useful for understanding the impact of neutral opinions in collective decision-making processes such as online debates, or polling scenarios. 
 
-- `cosar`: prune attacks using vote-based argument scores.
-- `css`: rank extensions using Collective Satisfaction Semantics.
+**Context:** Master's research work (M1 in Distributed Artificial Intelligence, Paris Cité University). The research extends the OBAF framework introduced in *Collective Satisfaction Semantics for Opinion Based Argumentation* by proposing new vote-aggregation strategies taking into account neutral votes from agents, and evaluating their efficiency in finding the truth extension in an OBAF.
 
-Main entry point: `src/cli.py`.
+**Core algorithms:**
+- **COSAR**: Derives argument scores from agent votes using multiple aggregation methods. Prunes attacks incompatible with score ordering and computes extensions on the newly pruned framework.
+- **CSS**: Ranks extensions by measuring collective agent satisfaction under different vote-aggregation policies.
+
+**Main entry point:** `src/cli.py` — Run all commands from the project root.
 
 ## Requirements
 
@@ -24,179 +27,151 @@ pip install -r requirements.txt
 
 ## Algorithms
 
-### COSAR
+### COSAR: Score-Based Attack Pruning
 
-Given arguments, attacks, and votes, COSAR computes a score for each argument, removes attacks that are incompatible with the score ordering, then computes extensions on the pruned framework.
+Given arguments, attacks, and distributed votes, COSAR aggregates votes to compute credibility scores for each argument, removes attacks that violate the score ordering, and computes extensions on the pruned framework.
 
-For an attack $x \to y$, the attack is kept iff $score(x) \ge score(y)$.
+For an attack $x \to y$, the attack is retained iff $\text{score}(x) \geq \text{score}(y)$.
 
-#### Aggregation modes in the implementation
+**Aggregation methods:**
 
-COSAR currently supports three score-based aggregation methods:
+To see details on each method, refer to `definitions.md` and `wct.md`.
+All methods are available via `--aggregation-method` in the CLI.
 
-- `base` (default)
-- `neutral-aware` (alias: `na`)
-- `bayesian`
+### CSS: Collective Satisfaction Ranking
 
-When the `bayesian` method is selected, neutral votes are treated as half a vote in favor (fixed weight `0.5`).
+Ranks extensions under a chosen semantics (PR, CO, etc.) by measuring how well each extension satisfies distributed agent preferences.
 
-In addition, the CLI provides a `wct` mode through the same COSAR execution path (`--aggregation-method wct`).
-This mode delegates scoring/selection to the weighted framework procedure defined in `wct.md`.
+**Parameters:**
+- Measure: $S$ (support), $D$ (dissatisfaction), $U$ (utility)
+- Aggregation: `sum`, `min`, `leximax`, `leximin`
 
-The COSAR algorithm used here is based on Section 4.3 in `Collective Satisfaction Semantics for Opinion Based Argumentation.pdf`.  
-The base aggregation definition is given in Definition 23 of `Collective Satisfaction Semantics for Opinion Based Argumentation.pdf`.  
-The neutral-aware aggregation definition is documented in `neutral_aware_definition.md`.  
+## CLI: Four Workflows
 
-### CSS
+The CLI provides four workflows: `run` (single-instance analysis), `convert` (batch OBAF generation), `eval` (batch algorithm evaluation), and `plot` (efficiency visualization).
 
-CSS ranks extensions computed under a chosen semantics using:
+### 1. Run Workflow: Single-Instance Analysis
 
-- measure in `{S, D, U}`
-- aggregation in `{sum, min, leximax, leximin}`
-
-## CLI usage
-
-### Interactive mode
-
-Run:
+Executes COSAR or CSS on one test file or custom input.
 
 ```bash
-python src/cli.py
-```
+# Interactive mode
+python src/cli.py run
 
-Interactive flow:
+# Direct analysis (COSAR)
+python src/cli.py run --algorithm cosar --file as_01.apx
 
-1. Choose algorithm (`cosar` or `css`).
-2. Optionally set semantics.
-3. Select a data file or use menu commands.
+# With specific aggregation
+python src/cli.py run --file as_01.apx --aggregation-method bayesian
 
-File-menu commands:
+# CSS analysis
+python src/cli.py run --algorithm css --file as_01.apx --semantics PR --measure U --agg sum
 
-- `<number>`: run selected file
-- `v<number>`: display parsed content of selected file
-- `a`: switch algorithm
-- `s`: set semantics
-- `m`: configure COSAR aggregation (available only when algorithm is `cosar`)
-- `p`: configure CSS parameters (available only when algorithm is `css`)
-- `q`: quit
-
-## Command-line options
-
-```text
---algorithm {cosar,css}                 default: cosar
---file FILE                             APX file path or file name in data/
---args CUSTOM_ARGS                      custom arguments (Python literal list)
---atts CUSTOM_ATTS                      custom attacks (Python literal list)
---votes CUSTOM_VOTES                    custom votes (Python literal nested dict)
---no-write                              skip COSAR output file creation
---show-input                            display parsed input before execution
---semantics SEMANTICS                   default: PR
---aggregation-method {base,neutral-aware,wct,bayesian}
-                                        default: base
---measure {S,D,U}                       default: U
---agg {sum,min,leximax,leximin}         default: sum
-```
-
-Valid semantics in interactive validation: `CF`, `AD`, `ST`, `CO`, `PR`, `GR`, `ID`, `SST`.
-
-## Typical commands
-
-COSAR on a file:
-
-```bash
-python src/cli.py --algorithm cosar --file as_01.apx
-```
-
-COSAR without writing output file:
-
-```bash
-python src/cli.py --algorithm cosar --file as_01.apx --no-write
-```
-
-COSAR with Bayesian aggregation:
-
-```bash
-python src/cli.py --algorithm cosar --file as_01.apx --aggregation-method bayesian
-```
-
-COSAR with WCT mode:
-
-```bash
-python src/cli.py --algorithm cosar --file as_01.apx --aggregation-method wct
-```
-
-CSS on a file:
-
-```bash
-python src/cli.py --algorithm css --file as_01.apx --semantics PR --measure U --agg sum
-```
-
-Display parsed input before run:
-
-```bash
-python src/cli.py --algorithm cosar --file as_01.apx --show-input
-```
-
-## Custom input mode
-
-Custom input requires all three options together: `--args`, `--atts`, and `--votes`.
-
-Example:
-
-```bash
-python src/cli.py \
-  --algorithm cosar \
+# Custom input
+python src/cli.py run --algorithm cosar \
   --args '["a", "b", "c"]' \
   --atts '[["a", "b"], ["b", "c"]]' \
   --votes '{"A": {"a": 1, "b": -1}, "B": {"c": 1}}'
 ```
 
-## APX input format
+**Options:**
+- `--algorithm {cosar,css}` — Algorithm to run (default: cosar)
+- `--file FILE` — APX file from `data/test/`
+- `--args`, `--atts`, `--votes` — Custom input (all three required together)
+- `--semantics` — Semantics for extension enumeration: CF/AD/ST/CO/PR/GR/ID/SST (default: PR)
+- `--aggregation-method {base,neutral-aware,wct,bayesian}` — COSAR mode (default: base)
+- `--measure {S,D,U}` — CSS measure (default: U)
+- `--agg {sum,min,leximax,leximin}` — CSS aggregation (default: sum)
+- `--no-write` — Don't write COSAR output file
+- `--show-input` — Display parsed framework before execution
 
-Input files use lines such as:
+**Interactive menu** (when no `--file` is provided):
+- `<number>` — Select and run file
+- `v<number>` — View file contents
+- `a` — Switch algorithm
+- `s` — Set semantics
+- `m`/`p` — Configure algorithm parameters
+- `q` — Quit
 
-```text
-agt(A, B).
-arg(a).
-arg(b).
-att(a, b).
-vot(A, a, 1).
-vot(B, b, -1).
-```
+### 2. Convert Workflow: Generate OBAFs
 
-APX vote values accepted by the project format are `-1`, `1`.
-The `agt(...)` line is mandatory and must list all voting agents in the file.
-Neutral votes don't need to be included in the input files as they are equivalent to no vote. The parser will automatically handle missing votes and treat them as neutral, including agents that only have neutral votes.
+Converts all AF instances in `data/AF/` into OBAFs in `data/OBAF/` by generating votes and based on the given parameters.
 
-## Outputs
-
-- Before algorithm-specific processing, the CLI computes and prints initial extension(s) for the selected semantics.
-- COSAR prints pruned framework information and best extension(s).
-- COSAR writes `data/test/results/<source>_result.apx` unless `--no-write` is set.
-- CSS prints best extension(s) and does not write an output `.apx` file.
-
-## AF to OBAF Conversion
-
-The AF files provided in `data/AF` come from the experimental dataset given to use in this project experimental phase. You can find all the details about their generation in `data/AF/Info_generation.txt`.
-
-To generate OBAF files from all AF files in `data/AF`, run:
+The AF given in this repository have been given to us as base dataset to generate OBAFs. You can find the details of the generation process in `data/AF/Info_generation.txt`. 
 
 ```bash
-python src/af_to_obaf_script.py
+python src/cli.py convert
 ```
 
-The script processes both `data/AF/BA` and `data/AF/WS` and, for each AF file, tries all combinations of:
+For each AF file, generates $2 \times 9 \times 6 \times 2 = 216$ OBAFs by varying:
+- Semantics: PR (Preferred), CO (Complete)
+- Reliability: {0.2, 0.3, ..., 1.0}
+- Agents: {5, 10, 15, 20, 25, 30}
+- Distribution: uniform, average
 
-- semantics: `PR`, `CO`
-- reliability: `0.2` to `1.0` (step `0.1`)
-- number of agents: `5, 10, 15, 20, 25, 30`
-- distribution type: `uniform`, `average`
+In total, 18,144 OBAFs will be generated from the 84 AFs in the dataset.
 
-This is `2 x 9 x 6 x 2 = 216` configurations per AF file, which can produce more than 18,000 generated `.apx` files for the current dataset. Once it's done, you'll be able to find a detailled log of the generation process in `logs/`, and the generated `.apx` files in `data/OBAF`.
+**Output:**
+- OBAFs: `data/OBAF/{BA,WS}/`
+- Index: `data/OBAF/obaf_metadata.csv`
 
-## Acknowledgments
+### 3. Eval Workflow: Score All OBAFs
 
-This implementation is grounded in the formal framework presented in `Collective Satisfaction Semantics for Opinion Based Argumentation.pdf`.
-The software implementation also relies on the `pygarg` engine for argumentation reasoning, as described in `pygarg: A Python Engine for Argumentation.pdf`.
+Evaluates all generated OBAFs using each aggregation method by recording which methods recover the ground-truth extension.
 
-This repository is released as open-source research software; citation of these references is appreciated but not required.
+```bash
+python src/cli.py eval
+```
+
+For each OBAF, runs:
+- COSAR (base, neutral-aware, Bayesian)
+- WCT (weighted credibility framework)
+- CSS (utility measure with sum aggregation)
+
+Records a score of 1 if the algorithm returns exactly the ground-truth extension, 0 otherwise.
+Scores are appended to `data/OBAF/obaf_metadata.csv` for later analysis.
+
+### 4. Plot Workflow: Efficiency Visualization
+
+Generates efficiency graphs (% of OBAFs where each algorithm succeeded) vs. agent reliability, filtered by parameters.
+
+```bash
+# All data
+python src/cli.py plot
+
+# PR semantics only
+python src/cli.py plot --plot-semantics PR
+
+# Subset of agent counts
+python src/cli.py plot --plot-agents 5,10,15
+```
+
+**Options:**
+- `--plot-metadata PATH` — Metadata CSV (default: `data/OBAF/obaf_metadata.csv`)
+- `--plot-semantics {all,PR,CO}` — Filter by semantics (default: all)
+- `--plot-agents AGENTS` — Comma-separated agent counts (valid presets: 5, 5,10, 5,10,15, 5,10,15,20, 5,10,15,20,25, 5,10,15,20,25,30; default: all)
+- `--plot-distribution {all,uniform,average}` — Filter by distribution type (default: all)
+
+## APX Format
+
+APX files contains the definition of an OBAF instance. We extended the standard APX format to include agent votes. The format is as follows:
+
+```
+agt(Agent1, Agent2, ...).    # All voting agents (mandatory, once only)
+arg(argument).               # Arguments (one per line)
+att(attacker, target).       # Attacks (one per line)
+vot(Agent, argument, vote).  # Votes (one per line)
+```
+
+**Vote values:** `-1` (against), `1` (in favor). Neutral votes are automatically inferred for any agent-argument pair not explicitly voted on.
+
+**Constraints:** All agents and arguments referenced in votes/attacks must be declared. No duplicate votes per agent-argument pair.
+
+## References
+
+- *Juliete Rossie, Jérôme Delobelle, Sébastien Konieczny, Clément Lens, Srdjan Vesic. Collective Satisfaction Semantics for Opinion Based Argumentation. 21st International Conference on Principles of Knowledge Representation and Reasoning KR-2023, Nov 2024, Hanoi, Vietnam. pp.631-641, ⟨10.24963/kr.2024/59⟩.*
+- *Jean-Guy Mailly. pygarg: A Python Engine for Argumentation. IRIT/RR–2024–02–FR, IRIT - Institut de Recherche en Informatique de Toulouse. 2024.*
+
+## License and Attribution
+
+This is open-source research software. Citation is not required but greatly appreciated.
