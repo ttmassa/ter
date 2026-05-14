@@ -5,8 +5,9 @@
 __pycache__/
 
 # data results
-data/results/
-data/OBAF/
+data/test/results/
+data/OBAF/BA/
+data/OBAF/WS/
 
 # logs
 logs/
