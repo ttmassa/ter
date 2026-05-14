@@ -70,6 +70,30 @@ def read_apx(file_path: str) -> OBAF:
     
     return OBAF(arguments, attacks, agents, votes)
 
+def read_af_apx(file_path: str) -> tuple[list[str], list[list[str]]]:
+    # Read the AF from the file
+    args = []
+    atts = []
+    with open(file_path, 'r') as f:
+        line_counter = 0
+        for line in f:
+            line_counter += 1
+            line = line.strip()
+            # Skip empty lines
+            if not line:
+                continue
+            
+            if line.startswith('arg'):
+                arg = _parse_arg(line, file_path, line_counter)
+                args.append(arg)
+            elif line.startswith('att'):
+                att = _parse_att(line, file_path, line_counter)
+                atts.append(att)
+            else:
+                raise ValueError(f"Invalid line format: {line}. Expected lines to start with 'arg', or 'att', line {line_counter}, in {file_path}.")
+            
+    return args, atts
+
 def write_apx(file_path: str, obaf: OBAF) -> None:
     """
         Write the arguments, attacks, and votes to the given file in the APX format.
@@ -97,7 +121,7 @@ def write_apx(file_path: str, obaf: OBAF) -> None:
 
     print(f"Successfully wrote OBAF to file: {file_path}")
 
-def af_to_obaf(file_path: str, semantics: str, reliability: float, number_of_agents: int, distribution_type: str):
+def af_to_obaf(file_path: str, semantics: str, reliability: float, number_of_agents: int, distribution_type: str, overwrite: bool = False):
     """
         Convert an AF file to an OBAF by generating votes according to a given semantics, reliability, number of agents, and distribution type. 
     """
@@ -109,29 +133,8 @@ def af_to_obaf(file_path: str, semantics: str, reliability: float, number_of_age
     if distribution_type not in ['uniform', 'average']:
         raise ValueError(f"Unsupported distribution type: {distribution_type}. Supported types: 'uniform', 'average'.")
     
-    # Read the AF from the file (ignoring votes and agents if they are present)
-    args = []
-    atts = []
-    with open(file_path, 'r') as f:
-        line_counter = 0
-        for line in f:
-            line_counter += 1
-            line = line.strip()
-            # Skip empty lines
-            if not line:
-                continue
-            
-            if line.startswith('arg'):
-                arg = _parse_arg(line, file_path, line_counter)
-                args.append(arg)
-            elif line.startswith('att'):
-                att = _parse_att(line, file_path, line_counter)
-                atts.append(att)
-            elif line.startswith('agt') or line.startswith('vot'):
-                # Ignore any agent or vote lines since we will generate new votes
-                continue
-            else:
-                raise ValueError(f"Invalid line format: {line}. Expected lines to start with 'arg', 'att', 'agt', or 'vot', line {line_counter}, in {file_path}.")
+    # Read the AF from the file
+    args, atts = read_af_apx(file_path)
 
     # Compute extensions using pygarg solver
     computed_extensions = solver.extension_enumeration(args, atts, semantics)
