@@ -80,13 +80,13 @@ def main():
 
         _print_extensions("Best extension(s) according to COSAR", extensions)
 
-        # Write results to data/results
-        results_dir = repo_root / "data/results"
+        # Write results to data/test/results
+        results_dir = repo_root / "data/test/results"
         results_dir.mkdir(exist_ok=True)
         output_name = f"{source_name}_result.apx"
         output_path = (results_dir / output_name).resolve()
         write_apx(str(output_path), pruned_obaf)
-        print(f"\nResult file available in data/results: {output_path}")
+        print(f"\nResult file available in data/test/results: {output_path}")
         return
     elif cli_args.algorithm == "css":
         if not initial_extensions:
@@ -370,7 +370,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--no-write",
         action="store_true",
-        help="Do not write the resulting .apx file to data/results (COSAR mode).",
+        help="Do not write the resulting .apx file to data/test/results (COSAR mode).",
     )
     parser.add_argument(
         "--show-input",

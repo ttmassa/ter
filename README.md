@@ -172,7 +172,7 @@ Neutral votes don't need to be included in the input files as they are equivalen
 
 - Before algorithm-specific processing, the CLI computes and prints initial extension(s) for the selected semantics.
 - COSAR prints pruned framework information and best extension(s).
-- COSAR writes `data/results/<source>_result.apx` unless `--no-write` is set.
+- COSAR writes `data/test/results/<source>_result.apx` unless `--no-write` is set.
 - CSS prints best extension(s) and does not write an output `.apx` file.
 
 ## AF to OBAF Conversion
