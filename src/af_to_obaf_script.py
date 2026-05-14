@@ -230,7 +230,7 @@ def run_algorithms_on_obaf(obaf: OBAF, truth: list[str], semantics: str):
         Run the obaf through all algorithms and compute its scores based on the truth extension.
     """
     # CSS needs the basic extensions as input parameter
-    # basic_extensions = solver.extension_enumeration(obaf.args, obaf.atts, semantics)
+    basic_extensions = solver.extension_enumeration(obaf.args, obaf.atts, semantics)
 
     # COSAR base
     cosar_base_results, _ = run(obaf, semantics, log=False)
@@ -249,15 +249,15 @@ def run_algorithms_on_obaf(obaf: OBAF, truth: list[str], semantics: str):
     wct_score = _score_for_truth(wct_results, truth)
 
     # CSS
-    # css_results = run_css(basic_extensions, obaf, measure='U', agg='sum')
-    # css_score = _score_for_truth(css_results, truth)
+    css_results = run_css(basic_extensions, obaf, measure='U', agg='sum')
+    css_score = _score_for_truth(css_results, truth)
 
     scores = {
         "cosar_base_score": cosar_base_score,
         "cosar_na_score": cosar_na_score,
         "cosar_bayesian_score": cosar_bayesian_score,
         "wct_score": wct_score,
-        # "css_score": css_score,
+        "css_score": css_score,
     }
     
     return scores
@@ -313,7 +313,6 @@ def run_algorithms_on_all_obafs():
                     f"sem{semantics}-rel{reliability}-numAgt{num_agents}-dist{dist_type}"
                     f"-truth{truth_file_ext}.apx"
                 )
-                print(f"Constructed OBAF filename for BA: {obaf_filename}")
             elif af_type == "WS":
                 beta = row.get("beta", "")
                 # Normalize beta: CSV values are strings, so compare/format as float
@@ -353,7 +352,7 @@ def run_algorithms_on_all_obafs():
             row["cosar_na_score"] = scores["cosar_na_score"]
             row["cosar_bayesian_score"] = scores["cosar_bayesian_score"]
             row["wct_score"] = scores["wct_score"]
-            # row["css_score"] = scores["css_score"]
+            row["css_score"] = scores["css_score"]
             
             total_success += 1
             
